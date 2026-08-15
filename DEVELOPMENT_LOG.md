@@ -159,3 +159,18 @@ The application should remain understandable to a beginner while
 following good software-engineering practices.
 
 Features should be implemented in small Git checkpoints.
+
+---
+
+### 2026-08-15 (UI Polish)
+
+- Polished Dashboard, Products and Sales screens with improved Material 3 styling.
+- Reworked hero cards, stat cards, product cards and quick action cards.
+- Applied a cohesive green theme across the app and improved navigation bar styling.
+- Added `google_fonts` and applied `Poppins` typography for a professional look.
+- Replaced nonstandard color helpers with standard `.withOpacity()` calls.
+- Updated README and project documentation for clarity.
+
+Commit:
+
+`chore: polish UI, update theme and docs`

@@ -4,9 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:business_dash/screens/dashboard_screen.dart';
 
 void main() {
-  testWidgets('Dashboard screen displays the dashboard', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('Dashboard screen displays the dashboard', (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: DashboardScreen()));
 
     expect(find.text('Business Dashboard'), findsNWidgets(2));
