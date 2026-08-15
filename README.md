@@ -1,3 +1,63 @@
+# BusinessDash
+
+BusinessDash is an offline-first Flutter business management
+application being developed as a learning project and reusable
+foundation for small-business applications.
+
+## Target Businesses
+
+The foundation is intended to support businesses such as:
+
+- Motorcycle spare-parts shops
+- Agrovet shops
+- Hardware shops
+- Electronics shops
+- General retail shops
+
+## Current Focus
+
+The first MVP focuses on:
+
+- Products
+- Stock
+- Sales
+- Daily sales totals
+- Low-stock indication
+- Offline local storage
+
+## Technology
+
+- Flutter
+- Dart
+- Android
+- SQLite
+- Git
+- GitHub
+- VS Code
+
+## Development
+
+Project location:
+
+`C:\Development\business_dash`
+
+Primary development device:
+
+OPPO CPH2819
+
+## Project Structure
+
+```text
+lib/
+├── main.dart
+├── screens/
+├── widgets/
+├── models/
+├── services/
+├── database/
+└── repositories/
+```
+
 # business_dash
 
 A new Flutter project.
