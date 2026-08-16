@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/product.dart';
+import '../repositories/product_repository.dart';
+
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
 
@@ -15,6 +18,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
 
+  final ProductRepository _productRepository = ProductRepository();
+
   String selectedCategory = 'Motorcycle Parts';
 
   @override
@@ -26,14 +31,28 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.dispose();
   }
 
-  void saveProduct() {
+  Future<void> saveProduct() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
+    final product = Product(
+      name: _nameController.text.trim(),
+      category: selectedCategory,
+      buyingPrice: double.parse(_buyingPriceController.text.trim()),
+      sellingPrice: double.parse(_sellingPriceController.text.trim()),
+      stockQuantity: int.parse(_stockController.text.trim()),
+    );
+
+    await _productRepository.insertProduct(product);
+
+    if (!mounted) return;
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Product saved successfully')));
+
+    Navigator.pop(context);
   }
 
   @override

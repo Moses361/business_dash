@@ -1,13 +1,58 @@
 import 'package:flutter/material.dart';
 
+import '../models/product.dart';
+import '../repositories/product_repository.dart';
 import '../widgets/product_card.dart';
 import 'add_product_screen.dart';
 
-class ProductsScreen extends StatelessWidget {
+class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
 
   @override
+  State<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends State<ProductsScreen> {
+  final ProductRepository _productRepository = ProductRepository();
+
+  List<Product> _products = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final products = await _productRepository.getProducts();
+
+    if (!mounted) return;
+
+    setState(() {
+      _products = products;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _openAddProduct() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddProductScreen()),
+    );
+
+    await _loadProducts();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final totalProducts = _products.length;
+
+    final totalStock = _products.fold<int>(
+      0,
+      (total, product) => total + product.stockQuantity,
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8F7),
       appBar: AppBar(
@@ -18,7 +63,11 @@ class ProductsScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.tune_rounded)),
+          IconButton(
+            onPressed: _loadProducts,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh products',
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -39,42 +88,13 @@ class ProductsScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              child: TextField(
+              child: const TextField(
                 decoration: InputDecoration(
                   hintText: 'Search products...',
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  prefixIcon: Icon(Icons.search_rounded),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(16),
+                  contentPadding: EdgeInsets.all(16),
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _CustomFilterChip(
-                    label: 'All',
-                    selected: true,
-                    onSelected: (_) {},
-                  ),
-                  const SizedBox(width: 8),
-                  _CustomFilterChip(
-                    label: 'Motorcycle Parts',
-                    selected: false,
-                    onSelected: (_) {},
-                  ),
-                  const SizedBox(width: 8),
-                  _CustomFilterChip(
-                    label: 'Agrovet',
-                    selected: false,
-                    onSelected: (_) {},
-                  ),
-                ],
               ),
             ),
 
@@ -83,9 +103,12 @@ class ProductsScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '125 Products',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                Text(
+                  '$totalProducts Products',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -97,7 +120,7 @@ class ProductsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'In Stock: 52',
+                    'Stock: $totalStock',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -110,140 +133,63 @@ class ProductsScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            Expanded(
-              child: ListView(
-                children: const [
-                  ProductCard(
-                    name: 'Brake Pads',
-                    category: 'Motorcycle Parts',
-                    stock: 15,
-                    price: 'KSh 2,500',
-                  ),
-
-                  ProductCard(
-                    name: 'Chain Kit',
-                    category: 'Motorcycle Parts',
-                    stock: 8,
-                    price: 'KSh 1,800',
-                  ),
-
-                  ProductCard(
-                    name: 'Engine Oil',
-                    category: 'Lubricants',
-                    stock: 4,
-                    price: 'KSh 1,200',
-                  ),
-
-                  ProductCard(
-                    name: 'Spark Plug',
-                    category: 'Motorcycle Parts',
-                    stock: 20,
-                    price: 'KSh 450',
-                  ),
-                ],
-              ),
-            ),
+            Expanded(child: _buildProductList()),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddProductScreen()),
-          );
-        },
+        onPressed: _openAddProduct,
         icon: const Icon(Icons.add),
         label: const Text('Add Product'),
       ),
     );
   }
-}
 
-class _CustomFilterChip extends StatefulWidget {
-  final String label;
-  final bool selected;
-  final Function(bool) onSelected;
+  Widget _buildProductList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  const _CustomFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  State<_CustomFilterChip> createState() => _CustomFilterChipState();
-}
-
-class _CustomFilterChipState extends State<_CustomFilterChip>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onSelected(!widget.selected);
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: widget.selected
-                ? LinearGradient(
-                    colors: [Colors.green.shade600, Colors.green.shade700],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: widget.selected ? null : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: widget.selected
-                ? null
-                : Border.all(color: Colors.grey.shade300),
-            boxShadow: widget.selected
-                ? [
-                    BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: widget.selected ? Colors.white : Colors.grey.shade700,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+    if (_products.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
             ),
-          ),
+            const SizedBox(height: 16),
+            const Text(
+              'No products yet',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add your first product to get started.',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ],
         ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadProducts,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _products.length,
+        itemBuilder: (context, index) {
+          final product = _products[index];
+
+          return ProductCard(
+            name: product.name,
+            category: product.category,
+            stock: product.stockQuantity,
+            price: 'KSh ${product.sellingPrice.toStringAsFixed(0)}',
+          );
+        },
       ),
     );
   }
