@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+﻿import 'package:sqflite/sqflite.dart';
 
 import '../database/database_service.dart';
 import '../models/product.dart';
@@ -21,40 +21,12 @@ class ProductRepository {
     });
   }
 
-  Future<List<Product>> getProducts() async {
-    final Database database = await _databaseService.database;
-
-    final List<Map<String, dynamic>> rows = await database.query(
-      DatabaseService.productsTable,
-      orderBy: 'id DESC',
-    );
-
-    return rows.map(_productFromMap).toList();
-  }
-
-  Future<Product?> getProductById(int id) async {
-    final Database database = await _databaseService.database;
-
-    final List<Map<String, dynamic>> rows = await database.query(
-      DatabaseService.productsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-
-    if (rows.isEmpty) {
-      return null;
-    }
-
-    return _productFromMap(rows.first);
-  }
-
   Future<int> updateProduct(Product product) async {
-    if (product.id == null) {
-      throw ArgumentError('Product ID is required to update a product.');
-    }
-
     final Database database = await _databaseService.database;
+
+    if (product.id == null) {
+      throw ArgumentError('Product id is required to update a product');
+    }
 
     return database.update(
       DatabaseService.productsTable,
@@ -70,6 +42,51 @@ class ProductRepository {
     );
   }
 
+  Future<List<Product>> getProducts() async {
+    final Database database = await _databaseService.database;
+
+    final List<Map<String, dynamic>> rows = await database.query(
+      DatabaseService.productsTable,
+      orderBy: 'id DESC',
+    );
+
+    return rows.map((row) {
+      return Product(
+        id: row['id'] as int,
+        name: row['name'] as String,
+        category: row['category'] as String,
+        buyingPrice: (row['buying_price'] as num).toDouble(),
+        sellingPrice: (row['selling_price'] as num).toDouble(),
+        stockQuantity: row['stock_quantity'] as int,
+      );
+    }).toList();
+  }
+
+  Future<int> getProductCount() async {
+    final Database database = await _databaseService.database;
+
+    final result = await database.rawQuery(
+      'SELECT COUNT(*) AS count FROM ${DatabaseService.productsTable}',
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getLowStockCount({int threshold = 5}) async {
+    final Database database = await _databaseService.database;
+
+    final result = await database.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseService.productsTable}
+      WHERE stock_quantity <= ?
+      ''',
+      [threshold],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   Future<int> deleteProduct(int id) async {
     final Database database = await _databaseService.database;
 
@@ -80,14 +97,24 @@ class ProductRepository {
     );
   }
 
-  Product _productFromMap(Map<String, dynamic> row) {
-    return Product(
-      id: row['id'] as int,
-      name: row['name'] as String,
-      category: row['category'] as String,
-      buyingPrice: (row['buying_price'] as num).toDouble(),
-      sellingPrice: (row['selling_price'] as num).toDouble(),
-      stockQuantity: row['stock_quantity'] as int,
+  Future<int> reduceStock({
+    required int productId,
+    required int quantity,
+  }) async {
+    if (quantity <= 0) {
+      throw ArgumentError('Quantity must be greater than zero');
+    }
+
+    final Database database = await _databaseService.database;
+
+    return database.rawUpdate(
+      '''
+      UPDATE ${DatabaseService.productsTable}
+      SET stock_quantity = stock_quantity - ?
+      WHERE id = ?
+        AND stock_quantity >= ?
+      ''',
+      [quantity, productId, quantity],
     );
   }
 }

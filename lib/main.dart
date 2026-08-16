@@ -5,16 +5,18 @@ import 'screens/products_screen.dart';
 import 'screens/sales_screen.dart';
 
 void main() {
-  runApp(const BusinessDashApp());
+  runApp(const VeroonApp());
 }
 
-class BusinessDashApp extends StatelessWidget {
-  const BusinessDashApp({super.key});
+class VeroonApp extends StatelessWidget {
+  const VeroonApp({super.key});
+
+  static const String appName = 'Veroon App';
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'BusinessDash',
+      title: appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -22,7 +24,6 @@ class BusinessDashApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-
         appBarTheme: AppBarTheme(
           elevation: 0,
           centerTitle: false,
@@ -30,21 +31,15 @@ class BusinessDashApp extends StatelessWidget {
           backgroundColor: Colors.green.shade50,
           foregroundColor: Colors.green.shade900,
         ),
-
-        // Use Flutter's built-in Material typography.
         textTheme: ThemeData.light().textTheme.apply(
           bodyColor: Colors.green.shade900,
           displayColor: Colors.green.shade900,
         ),
-
         primaryTextTheme: ThemeData.light().primaryTextTheme,
-
         scaffoldBackgroundColor: const Color(0xFFE8F5EE),
-
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white.withValues(alpha: 0.95),
           indicatorColor: Colors.green.shade100,
-
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             return TextStyle(
               color: states.contains(WidgetState.selected)
@@ -54,7 +49,6 @@ class BusinessDashApp extends StatelessWidget {
               fontWeight: FontWeight.w600,
             );
           }),
-
           iconTheme: WidgetStateProperty.resolveWith((states) {
             return IconThemeData(
               color: states.contains(WidgetState.selected)
@@ -63,12 +57,10 @@ class BusinessDashApp extends StatelessWidget {
             );
           }),
         ),
-
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: Colors.green.shade600,
           foregroundColor: Colors.white,
         ),
-
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green.shade700,
@@ -79,7 +71,6 @@ class BusinessDashApp extends StatelessWidget {
           ),
         ),
       ),
-
       home: const MainNavigation(),
     );
   }
@@ -105,35 +96,29 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: screens[currentIndex],
-
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
-
         onDestinationSelected: (index) {
           setState(() {
             currentIndex = index;
           });
         },
-
         backgroundColor: Colors.white,
         elevation: 8,
         shadowColor: Colors.green.withValues(alpha: 0.2),
         indicatorColor: Colors.green.shade100,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-
         destinations: [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined, color: Colors.grey.shade600),
             selectedIcon: Icon(Icons.dashboard, color: Colors.green.shade700),
             label: 'Home',
           ),
-
           NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined, color: Colors.grey.shade600),
             selectedIcon: Icon(Icons.inventory_2, color: Colors.green.shade700),
             label: 'Products',
           ),
-
           NavigationDestination(
             icon: Icon(
               Icons.point_of_sale_outlined,

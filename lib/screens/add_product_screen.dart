@@ -4,7 +4,9 @@ import '../models/product.dart';
 import '../repositories/product_repository.dart';
 
 class AddProductScreen extends StatefulWidget {
-  const AddProductScreen({super.key});
+  final Product? product;
+
+  const AddProductScreen({super.key, this.product});
 
   @override
   State<AddProductScreen> createState() => _AddProductScreenState();
@@ -18,9 +20,26 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
 
-  final ProductRepository _productRepository = ProductRepository();
+  final ProductRepository _repository = ProductRepository();
 
   String selectedCategory = 'Motorcycle Parts';
+  bool _isSaving = false;
+
+  bool get _isEditing => widget.product != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (_isEditing) {
+      final product = widget.product!;
+      _nameController.text = product.name;
+      _buyingPriceController.text = product.buyingPrice.toString();
+      _sellingPriceController.text = product.sellingPrice.toString();
+      _stockController.text = product.stockQuantity.toString();
+      selectedCategory = product.category;
+    }
+  }
 
   @override
   void dispose() {
@@ -36,42 +55,82 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
-    final product = Product(
-      name: _nameController.text.trim(),
-      category: selectedCategory,
-      buyingPrice: double.parse(_buyingPriceController.text.trim()),
-      sellingPrice: double.parse(_sellingPriceController.text.trim()),
-      stockQuantity: int.parse(_stockController.text.trim()),
-    );
+    setState(() {
+      _isSaving = true;
+    });
 
-    await _productRepository.insertProduct(product);
+    try {
+      final product = Product(
+        id: widget.product?.id,
+        name: _nameController.text.trim(),
+        category: selectedCategory,
+        buyingPrice: double.parse(_buyingPriceController.text.trim()),
+        sellingPrice: double.parse(_sellingPriceController.text.trim()),
+        stockQuantity: int.parse(_stockController.text.trim()),
+      );
 
-    if (!mounted) return;
+      if (_isEditing) {
+        await _repository.updateProduct(product);
+        if (!mounted) {
+          return;
+        }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Product saved successfully')));
+        Navigator.pop(context, product);
+      } else {
+        final id = await _repository.insertProduct(product);
 
-    Navigator.pop(context);
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Product saved successfully (ID: $id)')),
+        );
+
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save product: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Product')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Product' : 'Add Product')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text(
-              'Product Information',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Text(
+              _isEditing ? 'Update Product Details' : 'Product Information',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
 
-            const Text('Enter the details of your new product.'),
+            Text(
+              _isEditing
+                  ? 'Update the selected product details.'
+                  : 'Enter the details of your new product.',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
 
             const SizedBox(height: 24),
 
@@ -137,8 +196,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   return 'Please enter the buying price';
                 }
 
-                if (double.tryParse(value) == null) {
-                  return 'Enter a valid number';
+                final price = double.tryParse(value.trim());
+
+                if (price == null || price < 0) {
+                  return 'Enter a valid price';
                 }
 
                 return null;
@@ -162,8 +223,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   return 'Please enter the selling price';
                 }
 
-                if (double.tryParse(value) == null) {
-                  return 'Enter a valid number';
+                final price = double.tryParse(value.trim());
+
+                if (price == null || price < 0) {
+                  return 'Enter a valid price';
                 }
 
                 return null;
@@ -185,8 +248,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   return 'Please enter the stock quantity';
                 }
 
-                if (int.tryParse(value) == null) {
-                  return 'Enter a whole number';
+                final stock = int.tryParse(value.trim());
+
+                if (stock == null || stock < 0) {
+                  return 'Enter a valid whole number';
                 }
 
                 return null;
@@ -198,11 +263,19 @@ class _AddProductScreenState extends State<AddProductScreen> {
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: saveProduct,
-                icon: const Icon(Icons.save_outlined),
-                label: const Text(
-                  'Save Product',
-                  style: TextStyle(fontSize: 16),
+                onPressed: _isSaving ? null : saveProduct,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(
+                  _isSaving
+                      ? (_isEditing ? 'Updating...' : 'Saving...')
+                      : (_isEditing ? 'Update Product' : 'Save Product'),
+                  style: const TextStyle(fontSize: 16),
                 ),
               ),
             ),

@@ -4,6 +4,7 @@ import '../models/product.dart';
 import '../repositories/product_repository.dart';
 import '../widgets/product_card.dart';
 import 'add_product_screen.dart';
+import 'product_details_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -13,7 +14,7 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-  final ProductRepository _productRepository = ProductRepository();
+  final ProductRepository _repository = ProductRepository();
 
   List<Product> _products = [];
   bool _isLoading = true;
@@ -25,9 +26,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final products = await _productRepository.getProducts();
+    setState(() {
+      _isLoading = true;
+    });
 
-    if (!mounted) return;
+    final products = await _repository.getProducts();
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _products = products;
@@ -44,10 +51,80 @@ class _ProductsScreenState extends State<ProductsScreen> {
     await _loadProducts();
   }
 
+  Future<void> _openProduct(Product product) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductDetailsScreen(product: product),
+      ),
+    );
+
+    await _loadProducts();
+  }
+
+  Future<void> _editProduct(Product product) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddProductScreen(product: product),
+      ),
+    );
+
+    await _loadProducts();
+  }
+
+  Future<void> _deleteProduct(Product product) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Product'),
+          content: Text('Are you sure you want to delete "${product.name}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    await _repository.deleteProduct(product.id!);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _products.removeWhere((item) => item.id == product.id);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product.name} deleted'),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () async {
+            await _repository.insertProduct(product);
+            await _loadProducts();
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final totalProducts = _products.length;
-
     final totalStock = _products.fold<int>(
       0,
       (total, product) => total + product.stockQuantity,
@@ -64,6 +141,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
         actions: [
           IconButton(
+            onPressed: _openAddProduct,
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Add product',
+          ),
+          IconButton(
             onPressed: _loadProducts,
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh products',
@@ -76,27 +158,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search products...',
-                  prefixIcon: Icon(Icons.search_rounded),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(16),
-                ),
-              ),
-            ),
+            _buildSearchBox(),
 
             const SizedBox(height: 20),
 
@@ -104,7 +166,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '$totalProducts Products',
+                  '${_products.length} Products',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -131,16 +193,35 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             Expanded(child: _buildProductList()),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddProduct,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Product'),
+    );
+  }
+
+  Widget _buildSearchBox() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const TextField(
+        decoration: InputDecoration(
+          hintText: 'Search products...',
+          prefixIcon: Icon(Icons.search_rounded),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.all(16),
+        ),
       ),
     );
   }
@@ -151,45 +232,60 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
 
     if (_products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'No products yet',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add your first product to get started.',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      );
+      return _buildEmptyState();
     }
 
     return RefreshIndicator(
       onRefresh: _loadProducts,
       child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _products.length,
         itemBuilder: (context, index) {
           final product = _products[index];
 
-          return ProductCard(
-            name: product.name,
-            category: product.category,
-            stock: product.stockQuantity,
-            price: 'KSh ${product.sellingPrice.toStringAsFixed(0)}',
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ProductCard(
+              name: product.name,
+              category: product.category,
+              stock: product.stockQuantity,
+              price: 'KSh ${product.sellingPrice.toStringAsFixed(0)}',
+              onTap: () => _openProduct(product),
+              onEdit: () => _editProduct(product),
+              onDelete: () => _deleteProduct(product),
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 72,
+            color: Colors.green.shade300,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No products yet',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add your first product to get started.',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _openAddProduct,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Product'),
+          ),
+        ],
       ),
     );
   }
