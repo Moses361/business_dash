@@ -3,12 +3,20 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static const String _databaseName = 'business_dash.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   static const String productsTable = 'products';
   static const String salesTable = 'sales';
 
+  static DatabaseService? _instance;
   Database? _database;
+
+  DatabaseService._internal();
+
+  factory DatabaseService() {
+    _instance ??= DatabaseService._internal();
+    return _instance!;
+  }
 
   Future<Database> get database async {
     if (_database != null) {
@@ -22,6 +30,11 @@ class DatabaseService {
   Future<Database> _initializeDatabase() async {
     final databasePath = await getDatabasesPath();
     final path = join(databasePath, _databaseName);
+
+    print('========================================');
+    print('VEROON DATABASE');
+    print('Database path: $path');
+    print('========================================');
 
     return openDatabase(
       path,
@@ -73,6 +86,11 @@ class DatabaseService {
           created_at TEXT NOT NULL
         )
       ''');
+    }
+
+    if (oldVersion < 3) {
+      // Version 3 is reserved for future database changes.
+      // Existing products and sales are preserved.
     }
   }
 }

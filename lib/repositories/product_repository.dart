@@ -12,13 +12,17 @@ class ProductRepository {
   Future<int> insertProduct(Product product) async {
     final Database database = await _databaseService.database;
 
-    return database.insert(DatabaseService.productsTable, {
+    final id = await database.insert(DatabaseService.productsTable, {
       'name': product.name,
       'category': product.category,
       'buying_price': product.buyingPrice,
       'selling_price': product.sellingPrice,
       'stock_quantity': product.stockQuantity,
     });
+
+    print('VEROON INSERT: ${product.name} -> ID $id');
+
+    return id;
   }
 
   Future<int> updateProduct(Product product) async {
@@ -45,10 +49,25 @@ class ProductRepository {
   Future<List<Product>> getProducts() async {
     final Database database = await _databaseService.database;
 
-    final List<Map<String, dynamic>> rows = await database.query(
+    final rows = await database.query(
       DatabaseService.productsTable,
       orderBy: 'id DESC',
     );
+
+    print('========================================');
+    print('VEROON PRODUCTS READ');
+    print('Number of products: ${rows.length}');
+
+    for (final row in rows) {
+      print(
+        'ID=${row['id']} '
+        'NAME=${row['name']} '
+        'STOCK=${row['stock_quantity']} '
+        'PRICE=${row['selling_price']}',
+      );
+    }
+
+    print('========================================');
 
     return rows.map((row) {
       return Product(
@@ -69,7 +88,11 @@ class ProductRepository {
       'SELECT COUNT(*) AS count FROM ${DatabaseService.productsTable}',
     );
 
-    return Sqflite.firstIntValue(result) ?? 0;
+    final count = Sqflite.firstIntValue(result) ?? 0;
+
+    print('VEROON PRODUCT COUNT: $count');
+
+    return count;
   }
 
   Future<int> getLowStockCount({int threshold = 5}) async {
@@ -84,7 +107,11 @@ class ProductRepository {
       [threshold],
     );
 
-    return Sqflite.firstIntValue(result) ?? 0;
+    final count = Sqflite.firstIntValue(result) ?? 0;
+
+    print('VEROON LOW STOCK COUNT: $count');
+
+    return count;
   }
 
   Future<int> deleteProduct(int id) async {

@@ -5,6 +5,7 @@ import '../models/product.dart';
 import '../models/sale.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/sale_repository.dart';
+import '../widgets/veroon_header.dart';
 
 class RecordSaleScreen extends StatefulWidget {
   final ProductRepository? productRepository;
@@ -48,7 +49,6 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
     super.initState();
 
     _productRepository = widget.productRepository ?? ProductRepository();
-
     _saleRepository = widget.saleRepository ?? SaleRepository();
 
     _loadProducts();
@@ -233,6 +233,10 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const VeroonHeader(),
+
+          const SizedBox(height: 24),
+
           const Text(
             'Record a Sale',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
