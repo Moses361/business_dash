@@ -28,18 +28,26 @@ class _SalesScreenState extends State<SalesScreen> {
       _isLoading = true;
     });
 
-    final sales = await _saleRepository.getSales();
-    final totalSales = await _saleRepository.getTotalSales();
+    try {
+      final sales = await _saleRepository.getSales();
+      final totalSales = await _saleRepository.getTotalSales();
 
-    if (!mounted) {
-      return;
+      if (!mounted) return;
+
+      setState(() {
+        _sales = sales;
+        _totalSales = totalSales;
+        _isLoading = false;
+      });
+    } catch (error) {
+      debugPrint('VEROON SALES ERROR: $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    setState(() {
-      _sales = sales;
-      _totalSales = totalSales;
-      _isLoading = false;
-    });
   }
 
   String _formatAmount(double amount) {
@@ -47,6 +55,14 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+
+    final today = DateTime(now.year, now.month, now.day);
+
+    final saleDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    final difference = today.difference(saleDate).inDays;
+
     final hour = dateTime.hour == 0
         ? 12
         : dateTime.hour > 12
@@ -56,7 +72,38 @@ class _SalesScreenState extends State<SalesScreen> {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     final period = dateTime.hour >= 12 ? 'PM' : 'AM';
 
-    return 'Today • $hour:$minute $period';
+    final time = '$hour:$minute $period';
+
+    if (difference == 0) {
+      return 'Today • $time';
+    }
+
+    if (difference == 1) {
+      return 'Yesterday • $time';
+    }
+
+    final month = _monthName(dateTime.month);
+
+    return '$month ${dateTime.day}, ${dateTime.year} • $time';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return months[month - 1];
   }
 
   @override
@@ -116,7 +163,7 @@ class _SalesScreenState extends State<SalesScreen> {
                             ),
                             SizedBox(width: 8),
                             Text(
-                              "Total Sales",
+                              'Total Sales',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 15,
@@ -146,12 +193,16 @@ class _SalesScreenState extends State<SalesScreen> {
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 24),
+
                   const Text(
                     'Recent transactions',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
+
                   const SizedBox(height: 12),
+
                   if (_sales.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(32),
@@ -239,7 +290,9 @@ class _SaleTransactionTile extends StatelessWidget {
               size: 24,
             ),
           ),
+
           const SizedBox(width: 14),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +312,9 @@ class _SaleTransactionTile extends StatelessWidget {
               ],
             ),
           ),
+
           const SizedBox(width: 8),
+
           Text(
             amount,
             style: const TextStyle(
