@@ -15,14 +15,25 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   final ProductRepository _repository = ProductRepository();
+  final TextEditingController _searchController = TextEditingController();
 
   List<Product> _products = [];
+  List<Product> _filteredProducts = [];
+
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_filterProducts);
     _loadProducts();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterProducts);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProducts() async {
@@ -30,15 +41,53 @@ class _ProductsScreenState extends State<ProductsScreen> {
       _isLoading = true;
     });
 
-    final products = await _repository.getProducts();
+    try {
+      final products = await _repository.getProducts();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _products = products;
+        _isLoading = false;
+      });
+
+      _filterProducts();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load products: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _filterProducts() {
+    final query = _searchController.text.trim().toLowerCase();
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _products = products;
-      _isLoading = false;
+      if (query.isEmpty) {
+        _filteredProducts = List<Product>.from(_products);
+      } else {
+        _filteredProducts = _products.where((product) {
+          return product.name.toLowerCase().contains(query) ||
+              product.category.toLowerCase().contains(query);
+        }).toList();
+      }
     });
   }
 
@@ -99,28 +148,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
       return;
     }
 
-    await _repository.deleteProduct(product.id!);
+    try {
+      await _repository.deleteProduct(product.id!);
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    setState(() {
-      _products.removeWhere((item) => item.id == product.id);
-    });
+      await _loadProducts();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${product.name} deleted'),
-        action: SnackBarAction(
-          label: 'UNDO',
-          onPressed: () async {
-            await _repository.insertProduct(product);
-            await _loadProducts();
-          },
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${product.name} deleted'),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () async {
+              await _repository.insertProduct(product);
+              await _loadProducts();
+            },
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not delete product: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -166,7 +226,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${_products.length} Products',
+                  _searchController.text.trim().isEmpty
+                      ? '${_products.length} Products'
+                      : '${_filteredProducts.length} of ${_products.length} Products',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -215,12 +277,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
-      child: const TextField(
+      child: TextField(
+        controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Search products...',
-          prefixIcon: Icon(Icons.search_rounded),
+          prefixIcon: const Icon(Icons.search_rounded),
+          suffixIcon: _searchController.text.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                  icon: const Icon(Icons.clear_rounded),
+                  tooltip: 'Clear search',
+                ),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.all(16),
+          contentPadding: const EdgeInsets.all(16),
         ),
       ),
     );
@@ -235,12 +307,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
       return _buildEmptyState();
     }
 
+    if (_filteredProducts.isEmpty) {
+      return _buildNoSearchResults();
+    }
+
     return RefreshIndicator(
       onRefresh: _loadProducts,
       child: ListView.builder(
-        itemCount: _products.length,
+        itemCount: _filteredProducts.length,
         itemBuilder: (context, index) {
-          final product = _products[index];
+          final product = _filteredProducts[index];
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -284,6 +360,40 @@ class _ProductsScreenState extends State<ProductsScreen> {
             onPressed: _openAddProduct,
             icon: const Icon(Icons.add),
             label: const Text('Add Product'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResults() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: Colors.green.shade300,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No products found',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try a different product name or category.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () {
+              _searchController.clear();
+            },
+            icon: const Icon(Icons.clear),
+            label: const Text('Clear Search'),
           ),
         ],
       ),
