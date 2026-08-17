@@ -7,7 +7,7 @@ class SaleRepository {
   final DatabaseService _databaseService;
 
   SaleRepository({DatabaseService? databaseService})
-    : _databaseService = databaseService ?? DatabaseService();
+      : _databaseService = databaseService ?? DatabaseService();
 
   Future<int> insertSale(Sale sale) async {
     final Database database = await _databaseService.database;
@@ -37,21 +37,28 @@ class SaleRepository {
         WHERE id = ?
           AND stock_quantity >= ?
         ''',
-        [sale.quantity, sale.productId, sale.quantity],
+        [
+          sale.quantity,
+          sale.productId,
+          sale.quantity,
+        ],
       );
 
       if (updatedRows == 0) {
         throw StateError('Insufficient stock or product not found');
       }
 
-      return transaction.insert(DatabaseService.salesTable, {
-        'product_id': sale.productId,
-        'product_name': sale.productName,
-        'quantity': sale.quantity,
-        'selling_price': sale.sellingPrice,
-        'total_amount': sale.totalAmount,
-        'created_at': sale.createdAt.toIso8601String(),
-      });
+      return transaction.insert(
+        DatabaseService.salesTable,
+        {
+          'product_id': sale.productId,
+          'product_name': sale.productName,
+          'quantity': sale.quantity,
+          'selling_price': sale.sellingPrice,
+          'total_amount': sale.totalAmount,
+          'created_at': sale.createdAt.toIso8601String(),
+        },
+      );
     });
   }
 
@@ -79,21 +86,73 @@ class SaleRepository {
   Future<double> getTotalSales() async {
     final Database database = await _databaseService.database;
 
-    final result = await database.rawQuery('''
+    final result = await database.rawQuery(
+      '''
       SELECT COALESCE(SUM(total_amount), 0) AS total
       FROM ${DatabaseService.salesTable}
-      ''');
+      ''',
+    );
 
     final total = result.first['total'];
 
     return (total as num?)?.toDouble() ?? 0.0;
   }
 
+  Future<double> getTodaySales() async {
+    final Database database = await _databaseService.database;
+
+    print('========================================');
+    print('VEROON SALES DEBUG');
+
+    final allSales = await database.query(
+      DatabaseService.salesTable,
+      orderBy: 'id DESC',
+    );
+
+    print('Number of sales in database: ${allSales.length}');
+
+    for (final sale in allSales) {
+      print(
+        'SALE ID=${sale['id']} '
+        'PRODUCT=${sale['product_name']} '
+        'QTY=${sale['quantity']} '
+        'PRICE=${sale['selling_price']} '
+        'TOTAL=${sale['total_amount']} '
+        'DATE=${sale['created_at']}',
+      );
+    }
+
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    print('Today date: $today');
+
+    final result = await database.rawQuery(
+      '''
+      SELECT COALESCE(SUM(total_amount), 0) AS total
+      FROM ${DatabaseService.salesTable}
+      WHERE substr(created_at, 1, 10) = ?
+      ''',
+      [today],
+    );
+
+    final total = result.first['total'];
+
+    final todaySales = (total as num?)?.toDouble() ?? 0.0;
+
+    print('TODAY SALES RESULT: $todaySales');
+    print('========================================');
+
+    return todaySales;
+  }
+
   Future<int> getSaleCount() async {
     final Database database = await _databaseService.database;
 
     final result = await database.rawQuery(
-      'SELECT COUNT(*) AS count FROM ${DatabaseService.salesTable}',
+      '''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseService.salesTable}
+      ''',
     );
 
     return Sqflite.firstIntValue(result) ?? 0;

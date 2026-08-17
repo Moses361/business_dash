@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../repositories/product_repository.dart';
+import '../repositories/sale_repository.dart';
 import 'products_screen.dart';
 import 'record_sale_screen.dart';
 
@@ -12,7 +13,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final ProductRepository _repository = ProductRepository();
+  final ProductRepository _productRepository = ProductRepository();
+  final SaleRepository _saleRepository = SaleRepository();
 
   int _productCount = 0;
   int _lowStockCount = 0;
@@ -26,16 +28,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     try {
-      final productCount = await _repository.getProductCount();
-      final lowStockCount = await _repository.getLowStockCount();
+      final int productCount = await _productRepository.getProductCount();
+      final int lowStockCount = await _productRepository.getLowStockCount();
+      final double todaySales = await _saleRepository.getTodaySales();
 
-      const todaySales = 0.0;
-
+      print('========================================');
       print('VEROON DASHBOARD');
       print('Products: $productCount');
       print('Low stock: $lowStockCount');
       print('Today sales: $todaySales');
+      print('========================================');
 
       if (!mounted) return;
 
@@ -46,7 +55,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isLoading = false;
       });
     } catch (error) {
-      print('VEROON DASHBOARD ERROR: $error');
+      print('========================================');
+      print('VEROON DASHBOARD ERROR');
+      print(error);
+      print('========================================');
 
       if (!mounted) return;
 
@@ -63,7 +75,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (_) => const RecordSaleScreen(),
       ),
     );
-
     await _loadDashboardData();
   }
 
@@ -74,15 +85,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (_) => const ProductsScreen(),
       ),
     );
-
     await _loadDashboardData();
   }
 
   String _getGreeting() {
-    final hour = DateTime.now().hour;
+    final int hour = DateTime.now().hour;
 
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
+    if (hour < 12) {
+      return 'Good morning';
+    }
+    if (hour < 17) {
+      return 'Good afternoon';
+    }
     return 'Good evening';
   }
 
@@ -107,9 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 6),
-
               Text(
                 'Here is your business overview for today.',
                 style: TextStyle(
@@ -117,17 +129,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: Colors.grey.shade700,
                 ),
               ),
-
               const SizedBox(height: 28),
-
               _DashboardStatCard(
                 title: 'Products',
                 value: _isLoading ? '...' : '$_productCount',
                 icon: Icons.inventory_2_outlined,
               ),
-
               const SizedBox(height: 12),
-
               _DashboardStatCard(
                 title: "Today's Sales",
                 value: _isLoading
@@ -135,17 +143,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     : 'KSh ${_todaySales.toStringAsFixed(2)}',
                 icon: Icons.point_of_sale_outlined,
               ),
-
               const SizedBox(height: 12),
-
               _DashboardStatCard(
                 title: 'Low Stock',
                 value: _isLoading ? '...' : '$_lowStockCount',
                 icon: Icons.warning_amber_rounded,
               ),
-
               const SizedBox(height: 28),
-
               const Text(
                 'Quick Actions',
                 style: TextStyle(
@@ -153,9 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   Expanded(
@@ -168,9 +170,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _openProducts(context),
@@ -221,9 +221,7 @@ class _DashboardStatCard extends StatelessWidget {
                 size: 28,
               ),
             ),
-
             const SizedBox(width: 16),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,9 +233,7 @@ class _DashboardStatCard extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
-
                   const SizedBox(height: 4),
-
                   Text(
                     value,
                     style: const TextStyle(
