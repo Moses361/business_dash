@@ -1,121 +1,190 @@
 import 'package:flutter/material.dart';
 
+import '../repositories/product_repository.dart';
 import 'products_screen.dart';
 import 'record_sale_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
-  void _openRecordSale(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
-    );
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final ProductRepository _repository = ProductRepository();
+
+  int _productCount = 0;
+  int _lowStockCount = 0;
+  double _todaySales = 0.0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
   }
 
-  void _openProducts(BuildContext context) {
-    Navigator.push(
+  Future<void> _loadDashboardData() async {
+    try {
+      final productCount = await _repository.getProductCount();
+      final lowStockCount = await _repository.getLowStockCount();
+
+      const todaySales = 0.0;
+
+      print('VEROON DASHBOARD');
+      print('Products: $productCount');
+      print('Low stock: $lowStockCount');
+      print('Today sales: $todaySales');
+
+      if (!mounted) return;
+
+      setState(() {
+        _productCount = productCount;
+        _lowStockCount = lowStockCount;
+        _todaySales = todaySales;
+        _isLoading = false;
+      });
+    } catch (error) {
+      print('VEROON DASHBOARD ERROR: $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openRecordSale(BuildContext context) async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const ProductsScreen()),
+      MaterialPageRoute(
+        builder: (_) => const RecordSaleScreen(),
+      ),
     );
+
+    await _loadDashboardData();
+  }
+
+  Future<void> _openProducts(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProductsScreen(),
+      ),
+    );
+
+    await _loadDashboardData();
   }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
 
-    if (hour < 12) {
-      return 'Good morning';
-    }
-
-    if (hour < 17) {
-      return 'Good afternoon';
-    }
-
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
     return 'Good evening';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Business Dashboard')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_getGreeting()}, Veron Wasonga 👋',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
+      appBar: AppBar(
+        title: const Text('Business Dashboard'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadDashboardData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_getGreeting()}, Veron Wasonga 👋',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
 
-            const SizedBox(height: 6),
+              const SizedBox(height: 6),
 
-            Text(
-              'Here is your business overview for today.',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
-            ),
+              Text(
+                'Here is your business overview for today.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.grey.shade700,
+                ),
+              ),
 
-            const SizedBox(height: 28),
+              const SizedBox(height: 28),
 
-            _DashboardStatCard(
-              title: 'Products',
-              value: '0',
-              icon: Icons.inventory_2_outlined,
-            ),
+              _DashboardStatCard(
+                title: 'Products',
+                value: _isLoading ? '...' : '$_productCount',
+                icon: Icons.inventory_2_outlined,
+              ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            _DashboardStatCard(
-              title: "Today's Sales",
-              value: 'KSh 0.00',
-              icon: Icons.point_of_sale_outlined,
-            ),
+              _DashboardStatCard(
+                title: "Today's Sales",
+                value: _isLoading
+                    ? '...'
+                    : 'KSh ${_todaySales.toStringAsFixed(2)}',
+                icon: Icons.point_of_sale_outlined,
+              ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            _DashboardStatCard(
-              title: 'Low Stock',
-              value: '0',
-              icon: Icons.warning_amber_rounded,
-            ),
+              _DashboardStatCard(
+                title: 'Low Stock',
+                value: _isLoading ? '...' : '$_lowStockCount',
+                icon: Icons.warning_amber_rounded,
+              ),
 
-            const SizedBox(height: 28),
+              const SizedBox(height: 28),
 
-            const Text(
-              'Quick Actions',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+              const Text(
+                'Quick Actions',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 54,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openRecordSale(context),
-                      icon: const Icon(Icons.point_of_sale),
-                      label: const Text('Record Sale'),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 54,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openRecordSale(context),
+                        icon: const Icon(Icons.point_of_sale),
+                        label: const Text('Record Sale'),
+                      ),
                     ),
                   ),
-                ),
 
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openProducts(context),
-                    icon: const Icon(Icons.inventory_2_outlined),
-                    label: const Text('Products'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(54),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openProducts(context),
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      label: const Text('Products'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -146,7 +215,11 @@ class _DashboardStatCard extends StatelessWidget {
                 color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: Colors.green.shade700, size: 28),
+              child: Icon(
+                icon,
+                color: Colors.green.shade700,
+                size: 28,
+              ),
             ),
 
             const SizedBox(width: 16),
@@ -157,7 +230,10 @@ class _DashboardStatCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 15),
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 15,
+                    ),
                   ),
 
                   const SizedBox(height: 4),
