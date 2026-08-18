@@ -16,6 +16,7 @@ class SaleRepository {
       'product_id': sale.productId,
       'product_name': sale.productName,
       'quantity': sale.quantity,
+      'buying_price': sale.buyingPrice,
       'selling_price': sale.sellingPrice,
       'total_amount': sale.totalAmount,
       'created_at': sale.createdAt.toIso8601String(),
@@ -54,6 +55,7 @@ class SaleRepository {
           'product_id': sale.productId,
           'product_name': sale.productName,
           'quantity': sale.quantity,
+          'buying_price': sale.buyingPrice,
           'selling_price': sale.sellingPrice,
           'total_amount': sale.totalAmount,
           'created_at': sale.createdAt.toIso8601String(),
@@ -70,12 +72,13 @@ class SaleRepository {
       orderBy: 'id DESC',
     );
 
-    return rows.map((row) {
+    return rows.map<Sale>((row) {
       return Sale(
         id: row['id'] as int,
         productId: row['product_id'] as int,
         productName: row['product_name'] as String,
         quantity: row['quantity'] as int,
+        buyingPrice: (row['buying_price'] as num?)?.toDouble() ?? 0.0,
         sellingPrice: (row['selling_price'] as num).toDouble(),
         totalAmount: (row['total_amount'] as num).toDouble(),
         createdAt: DateTime.parse(row['created_at'] as String),
@@ -94,37 +97,13 @@ class SaleRepository {
     );
 
     final total = result.first['total'];
-
     return (total as num?)?.toDouble() ?? 0.0;
   }
 
   Future<double> getTodaySales() async {
     final Database database = await _databaseService.database;
 
-    print('========================================');
-    print('VEROON SALES DEBUG');
-
-    final allSales = await database.query(
-      DatabaseService.salesTable,
-      orderBy: 'id DESC',
-    );
-
-    print('Number of sales in database: ${allSales.length}');
-
-    for (final sale in allSales) {
-      print(
-        'SALE ID=${sale['id']} '
-        'PRODUCT=${sale['product_name']} '
-        'QTY=${sale['quantity']} '
-        'PRICE=${sale['selling_price']} '
-        'TOTAL=${sale['total_amount']} '
-        'DATE=${sale['created_at']}',
-      );
-    }
-
     final today = DateTime.now().toIso8601String().substring(0, 10);
-
-    print('Today date: $today');
 
     final result = await database.rawQuery(
       '''
@@ -136,13 +115,7 @@ class SaleRepository {
     );
 
     final total = result.first['total'];
-
-    final todaySales = (total as num?)?.toDouble() ?? 0.0;
-
-    print('TODAY SALES RESULT: $todaySales');
-    print('========================================');
-
-    return todaySales;
+    return (total as num?)?.toDouble() ?? 0.0;
   }
 
   Future<int> getSaleCount() async {

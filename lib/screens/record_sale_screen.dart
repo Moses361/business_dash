@@ -49,11 +49,12 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
     super.initState();
 
     _productRepository = widget.productRepository ?? ProductRepository();
+
     _saleRepository = widget.saleRepository ?? SaleRepository();
 
-    _loadProducts();
-
     _quantityController.addListener(_onQuantityChanged);
+
+    _loadProducts();
   }
 
   @override
@@ -64,7 +65,9 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
   }
 
   void _onQuantityChanged() {
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -74,7 +77,7 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
     });
 
     try {
-      final products = await _productRepository.getProducts();
+      final List<Product> products = await _productRepository.getProducts();
 
       if (!mounted) return;
 
@@ -83,7 +86,7 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
         _isLoading = false;
 
         if (_selectedProduct != null) {
-          final updatedProduct = products.where(
+          final Iterable<Product> updatedProduct = products.where(
             (product) => product.id == _selectedProduct!.id,
           );
 
@@ -128,12 +131,13 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
     });
 
     try {
-      final product = _selectedProduct!;
+      final Product product = _selectedProduct!;
 
       final sale = Sale(
         productId: product.id!,
         productName: product.name,
         quantity: _quantity,
+        buyingPrice: product.buyingPrice,
         sellingPrice: product.sellingPrice,
         totalAmount: _totalAmount,
         createdAt: DateTime.now(),
@@ -164,8 +168,8 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
 
       if (error is StateError) {
         _showMessage(
-          'Sale could not be recorded. The product may no longer have '
-          'enough stock.',
+          'Sale could not be recorded. The product may '
+          'no longer have enough stock.',
         );
       } else {
         _showMessage('Something went wrong while recording the sale.');
@@ -249,7 +253,7 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
           const SizedBox(height: 24),
 
           DropdownButtonFormField<int>(
-            initialValue: _selectedProduct?.id,
+            value: _selectedProduct?.id,
             decoration: const InputDecoration(
               labelText: 'Product',
               border: OutlineInputBorder(),
@@ -259,7 +263,8 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
               return DropdownMenuItem<int>(
                 value: product.id,
                 child: Text(
-                  '${product.name} (${product.stockQuantity} in stock)',
+                  '${product.name} '
+                  '(${product.stockQuantity} in stock)',
                 ),
               );
             }).toList(),
@@ -268,7 +273,7 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
                 : (productId) {
                     if (productId == null) return;
 
-                    final product = _products.firstWhere(
+                    final Product product = _products.firstWhere(
                       (item) => item.id == productId,
                     );
 
@@ -287,10 +292,19 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
                 child: Column(
                   children: [
                     _InfoRow(
+                      label: 'Buying price',
+                      value: _formatAmount(_selectedProduct!.buyingPrice),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _InfoRow(
                       label: 'Selling price',
                       value: _formatAmount(_selectedProduct!.sellingPrice),
                     ),
+
                     const SizedBox(height: 10),
+
                     _InfoRow(
                       label: 'Available stock',
                       value: '${_selectedProduct!.stockQuantity}',
@@ -325,7 +339,9 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
               child: Column(
                 children: [
                   const Text('Sale Total', style: TextStyle(fontSize: 16)),
+
                   const SizedBox(height: 8),
+
                   Text(
                     _formatAmount(_totalAmount),
                     style: const TextStyle(

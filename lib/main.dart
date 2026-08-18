@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/dashboard_screen.dart';
+import 'screens/expenses_screen.dart';
 import 'screens/products_screen.dart';
 import 'screens/sales_screen.dart';
 
@@ -90,6 +91,7 @@ class _MainNavigationState extends State<MainNavigation> {
     DashboardScreen(),
     ProductsScreen(),
     SalesScreen(),
+    ExpensesScreen(),
   ];
 
   @override
@@ -129,6 +131,17 @@ class _MainNavigationState extends State<MainNavigation> {
               color: Colors.green.shade700,
             ),
             label: 'Sales',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.receipt_long_outlined,
+              color: Colors.grey.shade600,
+            ),
+            selectedIcon: Icon(
+              Icons.receipt_long,
+              color: Colors.green.shade700,
+            ),
+            label: 'Expenses',
           ),
         ],
       ),
