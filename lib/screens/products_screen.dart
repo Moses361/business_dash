@@ -157,6 +157,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       await _loadProducts();
 
+      if (!mounted) {
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${product.name} deleted'),
