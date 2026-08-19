@@ -1,0 +1,620 @@
+import 'package:flutter/material.dart';
+
+import '../repositories/expense_repository.dart';
+import '../repositories/product_repository.dart';
+import '../repositories/report_repository.dart';
+import '../repositories/sale_repository.dart';
+import 'expenses_screen.dart';
+import 'products_screen.dart';
+import 'record_sale_screen.dart';
+
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final ProductRepository _productRepository = ProductRepository();
+  final SaleRepository _saleRepository = SaleRepository();
+  final ExpenseRepository _expenseRepository = ExpenseRepository();
+  final ReportRepository _reportRepository = ReportRepository();
+
+  ReportSummary? _todaySummary;
+
+  int _productCount = 0;
+  int _lowStockCount = 0;
+
+  List<Map<String, dynamic>> _topProducts = [];
+  List<Sale> _recentSales = [];
+
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  DateTime get _todayStart {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime get _tomorrow {
+    return _todayStart.add(const Duration(days: 1));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final results = await Future.wait([
+        _productRepository.getProductCount(),
+        _productRepository.getLowStockCount(),
+        _reportRepository.getSummary(
+          startDate: _todayStart,
+          endDate: _todayStart,
+        ),
+        _saleRepository.getTopSellingProducts(
+          start: _todayStart,
+          end: _tomorrow,
+          limit: 5,
+        ),
+        _saleRepository.getSalesBetween(_todayStart, _tomorrow),
+      ]);
+
+      if (!mounted) {
+        return;
+      }
+
+      final List<Sale> recentSales = results[4] as List<Sale>;
+
+      recentSales.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      setState(() {
+        _productCount = results[0] as int;
+        _lowStockCount = results[1] as int;
+        _todaySummary = results[2] as ReportSummary;
+        _topProducts = results[3] as List<Map<String, dynamic>>;
+        _recentSales = recentSales.take(5).toList();
+        _isLoading = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Dashboard loading error: $error');
+      debugPrint('$stackTrace');
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load dashboard data.';
+      });
+    }
+  }
+
+  Future<void> _openRecordSale(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadDashboardData();
+  }
+
+  Future<void> _openProducts(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProductsScreen()),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadDashboardData();
+  }
+
+  Future<void> _openExpenses(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadDashboardData();
+  }
+
+  String _getGreeting() {
+    final int hour = DateTime.now().hour;
+
+    if (hour < 12) {
+      return 'Good morning';
+    }
+
+    if (hour < 17) {
+      return 'Good afternoon';
+    }
+
+    return 'Good evening';
+  }
+
+  String _formatAmount(double amount) {
+    return 'KSh ${amount.toStringAsFixed(2)}';
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final int hour = dateTime.hour;
+    final int minute = dateTime.minute;
+
+    final String period = hour >= 12 ? 'PM' : 'AM';
+    final int displayHour = hour % 12 == 0 ? 12 : hour % 12;
+
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Business Dashboard'),
+        actions: [
+          IconButton(
+            onPressed: _isLoading ? null : _loadDashboardData,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh dashboard',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadDashboardData,
+        child: _buildBody(),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 160),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline, size: 52),
+                  const SizedBox(height: 16),
+                  Text(_errorMessage!, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadDashboardData,
+                    child: const Text('Try Again'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final ReportSummary summary =
+        _todaySummary ??
+        const ReportSummary(
+          sales: 0,
+          costOfGoods: 0,
+          grossProfit: 0,
+          expenses: 0,
+          netProfit: 0,
+          transactions: 0,
+          itemsSold: 0,
+        );
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      children: [
+        Text(
+          '${_getGreeting()}, Veroon Wasonga 👋',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Here is your business overview for today.',
+          style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
+        ),
+        const SizedBox(height: 24),
+
+        _buildTodaySummary(summary),
+
+        const SizedBox(height: 28),
+
+        _buildBusinessOverview(),
+
+        const SizedBox(height: 28),
+
+        _buildTopProducts(),
+
+        const SizedBox(height: 28),
+
+        _buildRecentSales(),
+
+        const SizedBox(height: 28),
+
+        _buildQuickActions(),
+      ],
+    );
+  }
+
+  Widget _buildTodaySummary(ReportSummary summary) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Today',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Sales',
+                value: _formatAmount(summary.sales),
+                icon: Icons.point_of_sale_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Gross Profit',
+                value: _formatAmount(summary.grossProfit),
+                icon: Icons.trending_up_rounded,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Expenses',
+                value: _formatAmount(summary.expenses),
+                icon: Icons.receipt_long_outlined,
+                iconBackgroundColor: Colors.red.shade50,
+                iconColor: Colors.red.shade700,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Net Profit',
+                value: _formatAmount(summary.netProfit),
+                icon: summary.netProfit >= 0
+                    ? Icons.account_balance_wallet_outlined
+                    : Icons.trending_down_rounded,
+                iconBackgroundColor: summary.netProfit >= 0
+                    ? Colors.green.shade50
+                    : Colors.red.shade50,
+                iconColor: summary.netProfit >= 0
+                    ? Colors.green.shade700
+                    : Colors.red.shade700,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBusinessOverview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Business Overview',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Products',
+                value: '$_productCount',
+                icon: Icons.inventory_2_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Low Stock',
+                value: '$_lowStockCount',
+                icon: Icons.warning_amber_rounded,
+                iconBackgroundColor: _lowStockCount > 0
+                    ? Colors.orange.shade50
+                    : Colors.green.shade50,
+                iconColor: _lowStockCount > 0
+                    ? Colors.orange.shade700
+                    : Colors.green.shade700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Transactions',
+                value: '${_todaySummary?.transactions ?? 0}',
+                icon: Icons.receipt_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _DashboardStatCard(
+                title: 'Items Sold',
+                value: '${_todaySummary?.itemsSold ?? 0}',
+                icon: Icons.shopping_bag_outlined,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopProducts() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Top Selling Products',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: _topProducts.isEmpty
+              ? _buildEmptyState(
+                  Icons.shopping_cart_outlined,
+                  'No sales recorded today.',
+                )
+              : Column(
+                  children: _topProducts.asMap().entries.map((entry) {
+                    final int index = entry.key;
+                    final Map<String, dynamic> product = entry.value;
+
+                    return _buildTopProductRow(index, product);
+                  }).toList(),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopProductRow(int index, Map<String, dynamic> product) {
+    final String name =
+        product['product_name']?.toString() ?? 'Unknown product';
+
+    final int quantity = (product['quantity'] as num?)?.toInt() ?? 0;
+
+    final double sales = (product['sales'] as num?)?.toDouble() ?? 0.0;
+
+    return Column(
+      children: [
+        ListTile(
+          leading: CircleAvatar(child: Text('${index + 1}')),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text('$quantity item${quantity == 1 ? '' : 's'} sold'),
+          trailing: Text(
+            _formatAmount(sales),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        if (index < _topProducts.length - 1) const Divider(height: 1),
+      ],
+    );
+  }
+
+  Widget _buildRecentSales() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recent Sales',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: _recentSales.isEmpty
+              ? _buildEmptyState(
+                  Icons.receipt_long_outlined,
+                  'No sales recorded today.',
+                )
+              : Column(
+                  children: _recentSales.asMap().entries.map((entry) {
+                    final int index = entry.key;
+                    final Sale sale = entry.value;
+
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.point_of_sale_outlined),
+                          ),
+                          title: Text(
+                            sale.productName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${sale.quantity} item${sale.quantity == 1 ? '' : 's'} • '
+                            '${_formatTime(sale.createdAt)}',
+                          ),
+                          trailing: Text(
+                            _formatAmount(sale.totalAmount),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        if (index < _recentSales.length - 1)
+                          const Divider(height: 1),
+                      ],
+                    );
+                  }).toList(),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(IconData icon, String message) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Icon(icon, size: 42, color: Colors.grey.shade400),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: () => _openRecordSale(context),
+                  icon: const Icon(Icons.point_of_sale),
+                  label: const Text('Record Sale'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _openProducts(context),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text('Products'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: OutlinedButton.icon(
+            onPressed: () => _openExpenses(context),
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: const Text('Manage Expenses'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(54),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardStatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color? iconBackgroundColor;
+  final Color? iconColor;
+
+  const _DashboardStatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    this.iconBackgroundColor,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconBackgroundColor ?? Colors.green.shade50,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, color: iconColor ?? Colors.green.shade700),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

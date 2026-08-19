@@ -207,7 +207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 CrossAxisAlignment.start,
             children: [
               Text(
-                '${_getGreeting()}, Veron 👋',
+                '${_getGreeting()}, Veroon 👋',
                 style: const TextStyle(
                   fontSize: 23,
                   fontWeight: FontWeight.w800,

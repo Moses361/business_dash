@@ -4,7 +4,8 @@ class ProductCard extends StatelessWidget {
   final String name;
   final String category;
   final int stock;
-  final String price;
+  final double buyingPrice;
+  final double sellingPrice;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -14,7 +15,8 @@ class ProductCard extends StatelessWidget {
     required this.name,
     required this.category,
     required this.stock,
-    required this.price,
+    required this.buyingPrice,
+    required this.sellingPrice,
     this.onTap,
     this.onEdit,
     this.onDelete,
@@ -23,7 +25,7 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLowStock = stock <= 5;
-
+    final double profit = sellingPrice - buyingPrice;
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
@@ -35,6 +37,7 @@ class ProductCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 52,
@@ -49,9 +52,7 @@ class ProductCard extends StatelessWidget {
                   size: 26,
                 ),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,9 +66,7 @@ class ProductCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       category,
                       maxLines: 1,
@@ -77,22 +76,56 @@ class ProductCard extends StatelessWidget {
                         color: Colors.grey.shade600,
                       ),
                     ),
-
-                    const SizedBox(height: 8),
-
-                    Row(
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
                       children: [
                         Text(
-                          price,
+                          'Buy: KSh ${buyingPrice.toStringAsFixed(2)}',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700,
+                            fontSize: 13,
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-
-                        const SizedBox(width: 12),
-
+                        Text(
+                          'Sell: KSh ${sellingPrice.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: profit >= 0
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Profit: KSh ${profit.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: profit >= 0
+                                  ? Colors.green.shade700
+                                  : Colors.red.shade700,
+                            ),
+                          ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -105,7 +138,7 @@ class ProductCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'Stock: $stock',
+                            isLowStock ? 'Low Stock: $stock' : 'Stock: $stock',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -120,7 +153,6 @@ class ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 tooltip: 'Product actions',

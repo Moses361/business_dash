@@ -3,7 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static const String _databaseName = 'veroon.db';
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 7;
 
   static const String productsTable = 'products';
   static const String salesTable = 'sales';
@@ -41,6 +41,7 @@ class DatabaseService {
       CREATE TABLE $productsTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        category TEXT NOT NULL,
         buying_price REAL NOT NULL,
         selling_price REAL NOT NULL,
         stock_quantity INTEGER NOT NULL
@@ -69,6 +70,8 @@ class DatabaseService {
         created_at TEXT NOT NULL
       )
     ''');
+
+    await _createIndexes(database);
   }
 
   Future<void> _upgradeDatabase(
@@ -76,17 +79,9 @@ class DatabaseService {
     int oldVersion,
     int newVersion,
   ) async {
-    if (oldVersion < 2) {
-      // Version 2 reserved for previous database changes.
-    }
-
-    if (oldVersion < 3) {
-      // Version 3 reserved for previous database changes.
-    }
-
     if (oldVersion < 4) {
       await database.execute('''
-        CREATE TABLE $expensesTable (
+        CREATE TABLE IF NOT EXISTS $expensesTable (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           amount REAL NOT NULL,
@@ -97,11 +92,62 @@ class DatabaseService {
     }
 
     if (oldVersion < 5) {
-      await database.execute('''
-        ALTER TABLE $salesTable
-        ADD COLUMN buying_price REAL NOT NULL DEFAULT 0
-      ''');
+      try {
+        await database.execute('''
+          ALTER TABLE $salesTable
+          ADD COLUMN buying_price REAL NOT NULL DEFAULT 0
+        ''');
+      } catch (_) {
+        // Column already exists.
+      }
     }
+
+    if (oldVersion < 6) {
+      try {
+        await database.execute('''
+          ALTER TABLE $productsTable
+          ADD COLUMN category TEXT NOT NULL DEFAULT 'Other'
+        ''');
+      } catch (_) {
+        // Column already exists.
+      }
+    }
+
+    if (oldVersion < 7) {
+      await _createIndexes(database);
+    }
+  }
+
+  Future<void> _createIndexes(Database database) async {
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_products_category
+      ON $productsTable(category)
+    ''');
+
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_products_stock
+      ON $productsTable(stock_quantity)
+    ''');
+
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sales_created_at
+      ON $salesTable(created_at)
+    ''');
+
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sales_product_id
+      ON $salesTable(product_id)
+    ''');
+
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_expenses_created_at
+      ON $expensesTable(created_at)
+    ''');
+
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_expenses_category
+      ON $expensesTable(category)
+    ''');
   }
 
   void debugPrintDatabase(String path) {
