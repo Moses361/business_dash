@@ -25,6 +25,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
+
     _searchController.addListener(_filterProducts);
     _loadProducts();
   }
@@ -44,7 +45,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
 
     try {
-      final products = await _repository.getProducts();
+      final List<Product> products = await _repository.getProducts();
 
       if (!mounted) return;
 
@@ -64,13 +65,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
         SnackBar(
           content: Text('Could not load products: $error'),
           backgroundColor: const Color(0xFFD64545),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
   List<Product> _filterList(List<Product> products) {
-    final query = _searchController.text.trim().toLowerCase();
+    final String query = _searchController.text.trim().toLowerCase();
 
     if (query.isEmpty) {
       return List<Product>.from(products);
@@ -93,9 +95,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Future<void> _openAddProduct() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const AddProductScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const AddProductScreen()),
     );
 
     if (!mounted) return;
@@ -106,9 +106,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Future<void> _openProduct(Product product) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProductDetailsScreen(product: product),
-      ),
+      MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product)),
     );
 
     if (!mounted) return;
@@ -119,9 +117,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Future<void> _editProduct(Product product) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => AddProductScreen(product: product),
-      ),
+      MaterialPageRoute(builder: (_) => AddProductScreen(product: product)),
     );
 
     if (!mounted) return;
@@ -132,21 +128,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Future<void> _deleteProduct(Product product) async {
     if (product.id == null) return;
 
-    final shouldDelete = await showDialog<bool>(
+    final bool? shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete Product'),
           content: Text(
-            'Are you sure you want to delete "${product.name}"?',
+            'Are you sure you want to delete '
+            '"${product.name}"?',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFD64545),
               ),
@@ -168,17 +169,44 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       if (!mounted) return;
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${product.name} deleted'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
           action: SnackBarAction(
             label: 'UNDO',
             onPressed: () async {
-              await _repository.insertProduct(product);
+              try {
+                await _repository.insertProduct(product);
 
-              if (!mounted) return;
+                if (!mounted) return;
 
-              await _loadProducts();
+                await _loadProducts();
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Product restored'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } catch (error) {
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not restore product.'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             },
           ),
         ),
@@ -190,6 +218,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         SnackBar(
           content: Text('Could not delete product: $error'),
           backgroundColor: const Color(0xFFD64545),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -197,18 +226,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalStock = _products.fold<int>(
+    final int totalStock = _products.fold<int>(
       0,
       (total, product) => total + product.stockQuantity,
     );
 
-    final lowStockCount = _products
+    final int lowStockCount = _products
         .where((product) => product.stockQuantity <= 5)
         .length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products'),
+        title: const Text(
+          'Products',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             onPressed: _openAddProduct,
@@ -222,13 +254,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
-
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAddProduct,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Product'),
+        label: const Text(
+          'Add Product',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
-
       body: RefreshIndicator(
         onRefresh: _loadProducts,
         child: CustomScrollView(
@@ -238,20 +271,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               sliver: SliverToBoxAdapter(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildInventorySummary(
-                      totalStock,
-                      lowStockCount,
-                    ),
-
+                    _buildInventorySummary(totalStock, lowStockCount),
                     const SizedBox(height: 14),
-
                     _buildSearchBox(),
-
                     const SizedBox(height: 18),
-
                     Row(
                       children: [
                         const Text(
@@ -262,9 +287,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             color: Color(0xFF17221D),
                           ),
                         ),
-
                         const Spacer(),
-
                         Text(
                           _searchController.text.trim().isEmpty
                               ? '${_products.length} products'
@@ -281,7 +304,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ),
             ),
-
             _buildProductSliver(),
           ],
         ),
@@ -289,10 +311,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildInventorySummary(
-    int totalStock,
-    int lowStockCount,
-  ) {
+  Widget _buildInventorySummary(int totalStock, int lowStockCount) {
     return Row(
       children: [
         Expanded(
@@ -302,9 +321,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             icon: Icons.inventory_2_rounded,
           ),
         ),
-
         const SizedBox(width: 10),
-
         Expanded(
           child: _SummaryTile(
             title: 'Total stock',
@@ -312,9 +329,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             icon: Icons.layers_rounded,
           ),
         ),
-
         const SizedBox(width: 10),
-
         Expanded(
           child: _SummaryTile(
             title: 'Low stock',
@@ -349,9 +364,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (_isLoading) {
       return const SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -372,26 +385,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final product = _filteredProducts[index];
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final Product product = _filteredProducts[index];
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: ProductCard(
-                name: product.name,
-                category: product.category,
-                stock: product.stockQuantity,
-                buyingPrice: product.buyingPrice,
-                sellingPrice: product.sellingPrice,
-                onTap: () => _openProduct(product),
-                onEdit: () => _editProduct(product),
-                onDelete: () => _deleteProduct(product),
-              ),
-            );
-          },
-          childCount: _filteredProducts.length,
-        ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ProductCard(
+              name: product.name,
+              category: product.category,
+              stock: product.stockQuantity,
+              buyingPrice: product.buyingPrice,
+              sellingPrice: product.sellingPrice,
+              onTap: () => _openProduct(product),
+              onEdit: () => _editProduct(product),
+              onDelete: () => _deleteProduct(product),
+            ),
+          );
+        }, childCount: _filteredProducts.length),
       ),
     );
   }
@@ -415,30 +425,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 color: Color(0xFF176B4D),
               ),
             ),
-
             const SizedBox(height: 18),
-
             const Text(
               'No products yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
-
             const SizedBox(height: 7),
-
             Text(
-              'Add your first product to start tracking inventory.',
+              'Add your first product '
+              'to start tracking inventory.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
-
             const SizedBox(height: 18),
-
             ElevatedButton.icon(
               onPressed: _openAddProduct,
               icon: const Icon(Icons.add_rounded),
@@ -462,30 +461,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
               size: 50,
               color: Color(0xFF9AA59F),
             ),
-
             const SizedBox(height: 14),
-
             const Text(
               'No products found',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
-
             const SizedBox(height: 7),
-
             Text(
-              'Try another product name or category.',
+              'Try another product '
+              'name or category.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
-
             const SizedBox(height: 16),
-
             OutlinedButton.icon(
               onPressed: _searchController.clear,
               icon: const Icon(Icons.clear_rounded),
@@ -513,11 +501,11 @@ class _SummaryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = warning
+    final Color iconColor = warning
         ? const Color(0xFFD58A18)
         : const Color(0xFF176B4D);
 
-    final background = warning
+    final Color background = warning
         ? const Color(0xFFFFF3DD)
         : const Color(0xFFE1F1EA);
 
@@ -533,25 +521,14 @@ class _SummaryTile extends StatelessWidget {
                 color: background,
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(
-                icon,
-                size: 18,
-                color: iconColor,
-              ),
+              child: Icon(icon, size: 18, color: iconColor),
             ),
-
             const SizedBox(height: 8),
-
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
-
             const SizedBox(height: 1),
-
             Text(
               title,
               maxLines: 1,

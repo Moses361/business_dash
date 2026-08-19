@@ -22,6 +22,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  static const Color primary = Color(0xFF176B4D);
+  static const Color dark = Color(0xFF17221D);
+  static const Color secondary = Color(0xFF66736D);
+  static const Color softGreen = Color(0xFFE1F1EA);
+  static const Color surface = Color(0xFFF6F8F7);
+
   @override
   void initState() {
     super.initState();
@@ -43,14 +49,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     try {
       final results = await Future.wait([
-        _repository.getSummary(
-          startDate: _startDate,
-          endDate: _endDate,
-        ),
-        _repository.getDailyReports(
-          startDate: _startDate,
-          endDate: _endDate,
-        ),
+        _repository.getSummary(startDate: _startDate, endDate: _endDate),
+        _repository.getDailyReports(startDate: _startDate, endDate: _endDate),
         _repository.getCategoryReports(
           startDate: _startDate,
           endDate: _endDate,
@@ -91,13 +91,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void _setThisWeek() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-
-    final int daysFromMonday = today.weekday - DateTime.monday;
+    final daysFromMonday = today.weekday - DateTime.monday;
 
     setState(() {
-      _startDate = today.subtract(
-        Duration(days: daysFromMonday),
-      );
+      _startDate = today.subtract(Duration(days: daysFromMonday));
       _endDate = today;
     });
 
@@ -116,14 +113,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _selectCustomRange() async {
-    final DateTimeRange? range = await showDateRangePicker(
+    final range = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      initialDateRange: DateTimeRange(
-        start: _startDate,
-        end: _endDate,
-      ),
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
     );
 
     if (range == null) return;
@@ -145,15 +139,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   String _formatDay(DateTime date) {
-    const days = [
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return '${days[date.weekday - 1]} ${date.day}/${date.month}';
   }
@@ -173,71 +159,51 @@ class _ReportsScreenState extends State<ReportsScreen> {
         );
 
     return Scaffold(
+      backgroundColor: surface,
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: const Text(
+          'Reports',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             onPressed: _isLoading ? null : _loadReports,
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh reports',
           ),
+          const SizedBox(width: 6),
         ],
       ),
-
       body: RefreshIndicator(
         onRefresh: _loadReports,
-
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                4,
-                16,
-                32,
-              ),
-
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
-
-                    const SizedBox(height: 16),
-
+                    const SizedBox(height: 18),
                     _buildDateRangeCard(),
-
-                    const SizedBox(height: 20),
-
+                    const SizedBox(height: 24),
                     if (_errorMessage != null) ...[
                       _buildError(),
                       const SizedBox(height: 20),
                     ],
-
                     _buildSectionTitle(
-                      'Performance',
-                      'Your business numbers for the selected period',
+                      'Business performance',
+                      'A quick view of your numbers for this period.',
                     ),
-
                     const SizedBox(height: 12),
-
                     _buildSummaryGrid(summary),
-
                     const SizedBox(height: 28),
-
                     _buildDailySection(),
-
                     const SizedBox(height: 28),
-
                     _buildCategorySection(),
-
-                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -249,54 +215,61 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Business analytics',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF17221D),
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Track revenue, profit and business performance.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF176B4D), Color(0xFF0F5139)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-
-        Container(
-          padding: const EdgeInsets.all(11),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE1F1EA),
-            borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Business analytics',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Track revenue, profit and performance.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: const Icon(
-            Icons.analytics_rounded,
-            color: Color(0xFF176B4D),
-            size: 23,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.analytics_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildSectionTitle(
-    String title,
-    String subtitle,
-  ) {
+  Widget _buildSectionTitle(String title, String subtitle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -305,23 +278,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
           style: const TextStyle(
             fontSize: 19,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF17221D),
+            color: dark,
           ),
         ),
         const SizedBox(height: 3),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
+        Text(subtitle, style: const TextStyle(fontSize: 12, color: secondary)),
       ],
     );
   }
 
   Widget _buildDateRangeCard() {
     return Card(
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -330,20 +298,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(9),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE1F1EA),
-                    borderRadius: BorderRadius.circular(11),
+                    color: softGreen,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.date_range_rounded,
-                    color: Color(0xFF176B4D),
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.date_range_rounded, color: primary),
                 ),
-
                 const SizedBox(width: 12),
-
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,44 +314,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         'Report period',
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      SizedBox(height: 3),
                       Text(
-                        'Choose the period you want to analyse',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF66736D),
-                        ),
+                        'Choose the period to analyse',
+                        style: TextStyle(fontSize: 12, color: secondary),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 14),
-
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 11,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               decoration: BoxDecoration(
                 color: const Color(0xFFF5F8F6),
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(
-                  color: const Color(0xFFE1E9E4),
-                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE1E9E4)),
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.calendar_month_outlined,
                     size: 18,
-                    color: Color(0xFF66736D),
+                    color: secondary,
                   ),
                   const SizedBox(width: 9),
                   Expanded(
@@ -398,44 +350,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF17221D),
+                        color: dark,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
             Wrap(
               spacing: 7,
               runSpacing: 7,
               children: [
-                _PeriodButton(
-                  label: 'Today',
-                  onPressed: _setToday,
-                ),
-                _PeriodButton(
-                  label: 'This Week',
-                  onPressed: _setThisWeek,
-                ),
-                _PeriodButton(
-                  label: 'This Month',
-                  onPressed: _setThisMonth,
-                ),
+                _PeriodButton(label: 'Today', onPressed: _setToday),
+                _PeriodButton(label: 'This Week', onPressed: _setThisWeek),
+                _PeriodButton(label: 'This Month', onPressed: _setThisMonth),
                 FilledButton.icon(
                   onPressed: _selectCustomRange,
-                  icon: const Icon(
-                    Icons.tune_rounded,
-                    size: 17,
-                  ),
+                  icon: const Icon(Icons.tune_rounded, size: 17),
                   label: const Text('Custom'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 42),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
                 ),
               ],
@@ -449,97 +385,71 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildSummaryGrid(ReportSummary summary) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double width = constraints.maxWidth;
+        final columns = constraints.maxWidth >= 700 ? 4 : 2;
 
-        final int columns = width >= 700 ? 4 : 2;
+        final cards = [
+          _SummaryCard(
+            title: 'Sales',
+            value: _isLoading ? '...' : _formatAmount(summary.sales),
+            icon: Icons.point_of_sale_outlined,
+          ),
+          _SummaryCard(
+            title: 'Cost of Goods',
+            value: _isLoading ? '...' : _formatAmount(summary.costOfGoods),
+            icon: Icons.shopping_cart_outlined,
+            iconColor: Colors.orange.shade700,
+            iconBackground: Colors.orange.shade50,
+          ),
+          _SummaryCard(
+            title: 'Gross Profit',
+            value: _isLoading ? '...' : _formatAmount(summary.grossProfit),
+            icon: Icons.trending_up_rounded,
+            iconColor: Colors.green.shade700,
+            iconBackground: Colors.green.shade50,
+          ),
+          _SummaryCard(
+            title: 'Expenses',
+            value: _isLoading ? '...' : _formatAmount(summary.expenses),
+            icon: Icons.receipt_long_outlined,
+            iconColor: Colors.red.shade700,
+            iconBackground: Colors.red.shade50,
+          ),
+          _SummaryCard(
+            title: 'Net Profit',
+            value: _isLoading ? '...' : _formatAmount(summary.netProfit),
+            icon: summary.netProfit >= 0
+                ? Icons.account_balance_wallet_outlined
+                : Icons.trending_down_rounded,
+            iconColor: summary.netProfit >= 0
+                ? Colors.green.shade700
+                : Colors.red.shade700,
+            iconBackground: summary.netProfit >= 0
+                ? Colors.green.shade50
+                : Colors.red.shade50,
+          ),
+          _SummaryCard(
+            title: 'Transactions',
+            value: _isLoading ? '...' : '${summary.transactions}',
+            icon: Icons.receipt_outlined,
+          ),
+          _SummaryCard(
+            title: 'Items Sold',
+            value: _isLoading ? '...' : '${summary.itemsSold}',
+            icon: Icons.inventory_2_outlined,
+          ),
+        ];
 
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-
-            // FIX:
-            // Use a safe, explicit height instead of relying on
-            // a tight aspect ratio that can overflow on short screens.
-            mainAxisExtent: 112,
+            mainAxisExtent: 116,
           ),
-
-          itemCount: 7,
-
-          itemBuilder: (context, index) {
-            final cards = [
-              _SummaryCard(
-                title: 'Sales',
-                value: _isLoading
-                    ? '...'
-                    : _formatAmount(summary.sales),
-                icon: Icons.point_of_sale_outlined,
-              ),
-              _SummaryCard(
-                title: 'Cost of Goods',
-                value: _isLoading
-                    ? '...'
-                    : _formatAmount(summary.costOfGoods),
-                icon: Icons.shopping_cart_outlined,
-                iconColor: Colors.orange.shade700,
-                iconBackground: Colors.orange.shade50,
-              ),
-              _SummaryCard(
-                title: 'Gross Profit',
-                value: _isLoading
-                    ? '...'
-                    : _formatAmount(summary.grossProfit),
-                icon: Icons.trending_up_rounded,
-                iconColor: Colors.green.shade700,
-                iconBackground: Colors.green.shade50,
-              ),
-              _SummaryCard(
-                title: 'Expenses',
-                value: _isLoading
-                    ? '...'
-                    : _formatAmount(summary.expenses),
-                icon: Icons.receipt_long_outlined,
-                iconColor: Colors.red.shade700,
-                iconBackground: Colors.red.shade50,
-              ),
-              _SummaryCard(
-                title: 'Net Profit',
-                value: _isLoading
-                    ? '...'
-                    : _formatAmount(summary.netProfit),
-                icon: summary.netProfit >= 0
-                    ? Icons.account_balance_wallet_outlined
-                    : Icons.trending_down_rounded,
-                iconColor: summary.netProfit >= 0
-                    ? Colors.green.shade700
-                    : Colors.red.shade700,
-                iconBackground: summary.netProfit >= 0
-                    ? Colors.green.shade50
-                    : Colors.red.shade50,
-              ),
-              _SummaryCard(
-                title: 'Transactions',
-                value: _isLoading
-                    ? '...'
-                    : '${summary.transactions}',
-                icon: Icons.receipt_outlined,
-              ),
-              _SummaryCard(
-                title: 'Items Sold',
-                value: _isLoading
-                    ? '...'
-                    : '${summary.itemsSold}',
-                icon: Icons.inventory_2_outlined,
-              ),
-            ];
-
-            return cards[index];
-          },
+          itemCount: cards.length,
+          itemBuilder: (context, index) => cards[index],
         );
       },
     );
@@ -551,70 +461,84 @@ class _ReportsScreenState extends State<ReportsScreen> {
       children: [
         _buildSectionTitle(
           'Daily performance',
-          'See how the business performed each day',
+          'See how the business performed each day.',
         ),
-
         const SizedBox(height: 12),
-
         if (_isLoading)
           _buildLoadingCard()
         else if (_dailyReports.isEmpty)
-          _buildEmptyCard(
-            'No sales or expenses recorded for this period.',
-          )
+          _buildEmptyCard('No sales or expenses recorded for this period.')
         else
           Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: _dailyReports.map((report) {
-                final bool positive = report.netProfit >= 0;
+                final positive = report.netProfit >= 0;
 
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 3,
-                  ),
-
-                  leading: Container(
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE1F1EA),
-                      borderRadius: BorderRadius.circular(11),
+                return Column(
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 5,
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: softGreen,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 18,
+                          color: primary,
+                        ),
+                      ),
+                      title: Text(
+                        _formatDay(report.date),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Sales ${_formatAmount(report.sales)}  •  '
+                          'Expenses ${_formatAmount(report.expenses)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: secondary,
+                          ),
+                        ),
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            positive ? 'Net profit' : 'Net loss',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: secondary,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _formatAmount(report.netProfit),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: positive
+                                  ? Colors.green.shade700
+                                  : Colors.red.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 18,
-                      color: Color(0xFF176B4D),
-                    ),
-                  ),
-
-                  title: Text(
-                    _formatDay(report.date),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Text(
-                      'Sales ${_formatAmount(report.sales)}  •  '
-                      'Expenses ${_formatAmount(report.expenses)}',
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                  ),
-
-                  trailing: Text(
-                    _formatAmount(report.netProfit),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      color: positive
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
-                    ),
-                  ),
+                    if (report != _dailyReports.last) const Divider(height: 1),
+                  ],
                 );
               }).toList(),
             ),
@@ -629,64 +553,65 @@ class _ReportsScreenState extends State<ReportsScreen> {
       children: [
         _buildSectionTitle(
           'Sales by category',
-          'Understand which product categories drive revenue',
+          'See which categories are driving revenue.',
         ),
-
         const SizedBox(height: 12),
-
         if (_isLoading)
           _buildLoadingCard()
         else if (_categoryReports.isEmpty)
-          _buildEmptyCard(
-            'No category sales available for this period.',
-          )
+          _buildEmptyCard('No category sales available for this period.')
         else
           Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: _categoryReports.map((report) {
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 3,
-                  ),
-
-                  leading: Container(
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE1F1EA),
-                      borderRadius: BorderRadius.circular(11),
+                return Column(
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 5,
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: softGreen,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: const Icon(
+                          Icons.category_outlined,
+                          size: 18,
+                          color: primary,
+                        ),
+                      ),
+                      title: Text(
+                        report.category,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Profit ${_formatAmount(report.profit)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: secondary,
+                          ),
+                        ),
+                      ),
+                      trailing: Text(
+                        _formatAmount(report.sales),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.category_outlined,
-                      size: 18,
-                      color: Color(0xFF176B4D),
-                    ),
-                  ),
-
-                  title: Text(
-                    report.category,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Text(
-                      'Profit ${_formatAmount(report.profit)}',
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                  ),
-
-                  trailing: Text(
-                    _formatAmount(report.sales),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                    ),
-                  ),
+                    if (report != _categoryReports.last)
+                      const Divider(height: 1),
+                  ],
                 );
               }).toList(),
             ),
@@ -698,14 +623,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildLoadingCard() {
     return const Card(
       child: Padding(
-        padding: EdgeInsets.all(26),
+        padding: EdgeInsets.all(28),
         child: Center(
           child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-            ),
+            width: 25,
+            height: 25,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
           ),
         ),
       ),
@@ -715,29 +638,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildEmptyCard(String message) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(26),
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
                 color: const Color(0xFFF5F8F6),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
                 Icons.analytics_outlined,
-                color: Color(0xFF66736D),
-                size: 25,
+                color: secondary,
+                size: 26,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 11),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF66736D),
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: secondary, fontSize: 13),
             ),
           ],
         ),
@@ -752,25 +672,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
       decoration: BoxDecoration(
         color: Colors.red.shade50,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.red.shade100,
-        ),
+        border: Border.all(color: Colors.red.shade100),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.error_outline,
-            color: Colors.red.shade700,
-          ),
+          Icon(Icons.error_outline, color: Colors.red.shade700),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _errorMessage!,
-              style: TextStyle(
-                color: Colors.red.shade800,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
             ),
+          ),
+          IconButton(
+            onPressed: _loadReports,
+            icon: const Icon(Icons.refresh_rounded),
+            color: Colors.red.shade700,
           ),
         ],
       ),
@@ -782,10 +699,7 @@ class _PeriodButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  const _PeriodButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _PeriodButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -793,13 +707,8 @@ class _PeriodButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 42),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 13,
-        ),
-        textStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 13),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
       child: Text(label),
     );
@@ -831,25 +740,20 @@ class _SummaryCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: iconBackground ??
-                    const Color(0xFFE1F1EA),
+                color: iconBackground ?? const Color(0xFFE1F1EA),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
                 size: 19,
-                color: iconColor ??
-                    const Color(0xFF176B4D),
+                color: iconColor ?? const Color(0xFF176B4D),
               ),
             ),
-
             const SizedBox(width: 9),
-
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
@@ -861,9 +765,7 @@ class _SummaryCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-
                   const SizedBox(height: 4),
-
                   Text(
                     value,
                     maxLines: 1,

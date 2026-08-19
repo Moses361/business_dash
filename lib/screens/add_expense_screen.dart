@@ -17,10 +17,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   late final ExpenseRepository _expenseRepository;
 
   final TextEditingController _titleController = TextEditingController();
+
   final TextEditingController _amountController = TextEditingController();
 
   String _selectedCategory = 'Other';
+
   bool _isSaving = false;
+
+  static const Color primary = Color(0xFF176B4D);
+  static const Color softGreen = Color(0xFFE1F1EA);
+  static const Color background = Color(0xFFF6F8F7);
+  static const Color textPrimary = Color(0xFF17221D);
+  static const Color textSecondary = Color(0xFF66736D);
+  static const Color danger = Color(0xFFD64545);
 
   static const List<String> _categories = [
     'Transport',
@@ -38,13 +47,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.initState();
 
     _expenseRepository = widget.expenseRepository ?? ExpenseRepository();
+
+    _amountController.addListener(_refreshPreview);
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_refreshPreview);
     _titleController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  void _refreshPreview() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   double get _amount {
@@ -54,7 +72,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _saveExpense() async {
     FocusScope.of(context).unfocus();
 
-    final title = _titleController.text.trim();
+    final String title = _titleController.text.trim();
 
     if (title.isEmpty) {
       _showMessage('Please enter an expense description.');
@@ -90,7 +108,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _isSaving = false;
       });
 
-      _showMessage('Expense recorded successfully.', isError: false);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Expense recorded successfully.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: primary,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
 
@@ -102,62 +129,159 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  void _showMessage(String message, {bool isError = true}) {
+  void _showMessage(String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF202824),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Expense')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(
+      backgroundColor: background,
+      appBar: AppBar(
+        title: const Text(
+          'Add Expense',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+
+              const SizedBox(height: 18),
+
+              _buildExpenseForm(),
+
+              const SizedBox(height: 14),
+
+              _buildAmountPreview(),
+
+              const SizedBox(height: 22),
+
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton.icon(
+                  onPressed: _isSaving ? null : _saveExpense,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: Text(_isSaving ? 'Saving Expense...' : 'Save Expense'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCEAEA),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(
               Icons.receipt_long_rounded,
-              size: 64,
-              color: Colors.green,
+              color: Colors.red.shade700,
+              size: 26,
             ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Record an expense',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Track money spent by the business.',
+                  style: TextStyle(color: textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 20),
-
+  Widget _buildExpenseForm() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const Text(
-              'Record an Expense',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              'Expense information',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: textPrimary,
+              ),
             ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              'Keep track of money spent by the business.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700),
+            const SizedBox(height: 4),
+            const Text(
+              'Add the details of this expense.',
+              style: TextStyle(fontSize: 11, color: textSecondary),
             ),
+            const SizedBox(height: 14),
 
-            const SizedBox(height: 32),
-
-            TextFormField(
+            TextField(
               controller: _titleController,
               enabled: !_isSaving,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Description',
                 hintText: 'e.g. Transport to supplier',
-                border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.description_outlined),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
-            TextFormField(
+            TextField(
               controller: _amountController,
               enabled: !_isSaving,
               keyboardType: const TextInputType.numberWithOptions(
@@ -170,18 +294,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 labelText: 'Amount',
                 hintText: 'Enter amount',
                 prefixText: 'KSh ',
-                border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.payments_outlined),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
             DropdownButtonFormField<String>(
-              initialValue: _selectedCategory,
+              value: _selectedCategory,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Category',
-                border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.category_outlined),
               ),
               items: _categories.map((category) {
@@ -193,32 +316,74 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               onChanged: _isSaving
                   ? null
                   : (value) {
-                      if (value == null) return;
+                      if (value == null) {
+                        return;
+                      }
 
                       setState(() {
                         _selectedCategory = value;
                       });
                     },
             ),
-
-            const SizedBox(height: 32),
-
-            SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveExpense,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(_isSaving ? 'Saving Expense...' : 'Save Expense'),
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAmountPreview() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: const Color(0xFFE1E9E4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: softGreen,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_outlined,
+              color: primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Expense total',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Amount that will be recorded',
+                  style: TextStyle(fontSize: 11, color: textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'KSh ${_amount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: danger,
+            ),
+          ),
+        ],
       ),
     );
   }

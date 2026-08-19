@@ -46,10 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final results = await Future.wait([
         _productRepository.getProductCount(),
         _productRepository.getLowStockCount(),
-        _reportRepository.getSummary(
-          startDate: today,
-          endDate: today,
-        ),
+        _reportRepository.getSummary(startDate: today, endDate: today),
       ]);
 
       if (!mounted) return;
@@ -75,9 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _openRecordSale(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const RecordSaleScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
     );
 
     if (!mounted) return;
@@ -88,9 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _openProducts(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ProductsScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const ProductsScreen()),
     );
 
     if (!mounted) return;
@@ -101,9 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _openExpenses(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ExpensesScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
     );
 
     if (!mounted) return;
@@ -142,9 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            onPressed: _isLoading
-                ? null
-                : _loadDashboardData,
+            onPressed: _isLoading ? null : _loadDashboardData,
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh dashboard',
           ),
@@ -155,19 +144,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRefresh: _loadDashboardData,
 
         child: SingleChildScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
 
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            4,
-            16,
-            32,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
 
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildWelcome(),
 
@@ -203,8 +185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 '${_getGreeting()}, Veroon 👋',
@@ -218,10 +199,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 5),
               Text(
                 'Here is how your business is doing today.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -243,9 +221,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildProfitHero(
-    ReportSummary summary,
-  ) {
+  Widget _buildProfitHero(ReportSummary summary) {
     final positive = summary.netProfit >= 0;
 
     return Container(
@@ -257,14 +233,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: positive
-              ? const [
-                  Color(0xFF176B4D),
-                  Color(0xFF0F513A),
-                ]
-              : const [
-                  Color(0xFFB83B3B),
-                  Color(0xFF8E2929),
-                ],
+              ? const [Color(0xFF176B4D), Color(0xFF0F513A)]
+              : const [Color(0xFFB83B3B), Color(0xFF8E2929)],
         ),
 
         borderRadius: BorderRadius.circular(22),
@@ -279,8 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -300,8 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(.12),
-                  borderRadius:
-                      BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   positive
@@ -317,9 +285,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
 
           Text(
-            _isLoading
-                ? '...'
-                : _formatAmount(summary.netProfit),
+            _isLoading ? '...' : _formatAmount(summary.netProfit),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 28,
@@ -345,22 +311,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildKpiGrid(
-    ReportSummary summary,
-  ) {
+  Widget _buildKpiGrid(ReportSummary summary) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return GridView(
           shrinkWrap: true,
-          physics:
-              const NeverScrollableScrollPhysics(),
+          physics: const NeverScrollableScrollPhysics(),
 
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount:
-                constraints.maxWidth >= 600
-                    ? 3
-                    : 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: constraints.maxWidth >= 600 ? 3 : 2,
 
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -370,34 +329,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             _KpiCard(
               title: 'Sales',
-              value: _isLoading
-                  ? '...'
-                  : _formatAmount(summary.sales),
+              value: _isLoading ? '...' : _formatAmount(summary.sales),
               icon: Icons.point_of_sale_rounded,
             ),
 
             _KpiCard(
               title: 'Gross Profit',
-              value: _isLoading
-                  ? '...'
-                  : _formatAmount(summary.grossProfit),
+              value: _isLoading ? '...' : _formatAmount(summary.grossProfit),
               icon: Icons.trending_up_rounded,
-              iconColor:
-                  const Color(0xFF1B8A5A),
-              iconBackground:
-                  const Color(0xFFE4F4EC),
+              iconColor: const Color(0xFF1B8A5A),
+              iconBackground: const Color(0xFFE4F4EC),
             ),
 
             _KpiCard(
               title: 'Expenses',
-              value: _isLoading
-                  ? '...'
-                  : _formatAmount(summary.expenses),
+              value: _isLoading ? '...' : _formatAmount(summary.expenses),
               icon: Icons.receipt_long_rounded,
-              iconColor:
-                  const Color(0xFFD64545),
-              iconBackground:
-                  const Color(0xFFFCEAEA),
+              iconColor: const Color(0xFFD64545),
+              iconBackground: const Color(0xFFFCEAEA),
             ),
           ],
         );
@@ -405,14 +354,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildBusinessOverview(
-    ReportSummary summary,
-  ) {
+  Widget _buildBusinessOverview(ReportSummary summary) {
     final lowStock = _lowStockCount > 0;
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Business overview',
@@ -427,10 +373,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         Text(
           'A quick snapshot of your operations.',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
 
         const SizedBox(height: 12),
@@ -440,9 +383,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: _OverviewTile(
                 title: 'Products',
-                value: _isLoading
-                    ? '...'
-                    : '$_productCount',
+                value: _isLoading ? '...' : '$_productCount',
                 subtitle: 'in inventory',
                 icon: Icons.inventory_2_rounded,
               ),
@@ -453,12 +394,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: _OverviewTile(
                 title: 'Low stock',
-                value: _isLoading
-                    ? '...'
-                    : '$_lowStockCount',
-                subtitle: lowStock
-                    ? 'needs attention'
-                    : 'all good',
+                value: _isLoading ? '...' : '$_lowStockCount',
+                subtitle: lowStock ? 'needs attention' : 'all good',
                 icon: Icons.warning_amber_rounded,
                 iconColor: lowStock
                     ? const Color(0xFFD58A18)
@@ -478,9 +415,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: _OverviewTile(
                 title: 'Transactions',
-                value: _isLoading
-                    ? '...'
-                    : '${summary.transactions}',
+                value: _isLoading ? '...' : '${summary.transactions}',
                 subtitle: 'today',
                 icon: Icons.receipt_long_rounded,
               ),
@@ -491,9 +426,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: _OverviewTile(
                 title: 'Items sold',
-                value: _isLoading
-                    ? '...'
-                    : '${summary.itemsSold}',
+                value: _isLoading ? '...' : '${summary.itemsSold}',
                 subtitle: 'today',
                 icon: Icons.shopping_bag_rounded,
               ),
@@ -506,8 +439,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildQuickActions() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Quick actions',
@@ -524,11 +456,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton.icon(
-            onPressed: () =>
-                _openRecordSale(context),
-            icon: const Icon(
-              Icons.point_of_sale_rounded,
-            ),
+            onPressed: () => _openRecordSale(context),
+            icon: const Icon(Icons.point_of_sale_rounded),
             label: const Text('Record Sale'),
           ),
         ),
@@ -539,15 +468,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () =>
-                    _openProducts(context),
-                icon: const Icon(
-                  Icons.inventory_2_outlined,
-                ),
+                onPressed: () => _openProducts(context),
+                icon: const Icon(Icons.inventory_2_outlined),
                 label: const Text('Products'),
                 style: OutlinedButton.styleFrom(
-                  minimumSize:
-                      const Size.fromHeight(50),
+                  minimumSize: const Size.fromHeight(50),
                 ),
               ),
             ),
@@ -556,15 +481,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () =>
-                    _openExpenses(context),
-                icon: const Icon(
-                  Icons.receipt_long_outlined,
-                ),
+                onPressed: () => _openExpenses(context),
+                icon: const Icon(Icons.receipt_long_outlined),
                 label: const Text('Expenses'),
                 style: OutlinedButton.styleFrom(
-                  minimumSize:
-                      const Size.fromHeight(50),
+                  minimumSize: const Size.fromHeight(50),
                 ),
               ),
             ),
@@ -581,28 +502,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       decoration: BoxDecoration(
         color: Colors.red.shade50,
-        borderRadius:
-            BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.red.shade100,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.red.shade100),
       ),
 
       child: Row(
         children: [
-          Icon(
-            Icons.error_outline,
-            color: Colors.red.shade700,
-          ),
+          Icon(Icons.error_outline, color: Colors.red.shade700),
           const SizedBox(width: 10),
 
           Expanded(
             child: Text(
               _errorMessage!,
-              style: TextStyle(
-                color: Colors.red.shade800,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
             ),
           ),
         ],
@@ -623,8 +535,7 @@ class _KpiCard extends StatelessWidget {
     required this.value,
     required this.icon,
     this.iconColor = const Color(0xFF176B4D),
-    this.iconBackground =
-        const Color(0xFFE1F1EA),
+    this.iconBackground = const Color(0xFFE1F1EA),
   });
 
   @override
@@ -640,25 +551,18 @@ class _KpiCard extends StatelessWidget {
 
               decoration: BoxDecoration(
                 color: iconBackground,
-                borderRadius:
-                    BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10),
               ),
 
-              child: Icon(
-                icon,
-                size: 19,
-                color: iconColor,
-              ),
+              child: Icon(icon, size: 19, color: iconColor),
             ),
 
             const SizedBox(width: 9),
 
             Expanded(
               child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
@@ -674,8 +578,7 @@ class _KpiCard extends StatelessWidget {
                   Text(
                     value,
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -705,10 +608,8 @@ class _OverviewTile extends StatelessWidget {
     required this.value,
     required this.subtitle,
     required this.icon,
-    this.iconColor =
-        const Color(0xFF176B4D),
-    this.iconBackground =
-        const Color(0xFFE1F1EA),
+    this.iconColor = const Color(0xFF176B4D),
+    this.iconBackground = const Color(0xFFE1F1EA),
   });
 
   @override
@@ -724,29 +625,22 @@ class _OverviewTile extends StatelessWidget {
 
               decoration: BoxDecoration(
                 color: iconBackground,
-                borderRadius:
-                    BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10),
               ),
 
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 19,
-              ),
+              child: Icon(icon, color: iconColor, size: 19),
             ),
 
             const SizedBox(width: 9),
 
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFF66736D),
@@ -768,8 +662,7 @@ class _OverviewTile extends StatelessWidget {
                   Text(
                     subtitle,
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 10,
                       color: Color(0xFF9AA59F),

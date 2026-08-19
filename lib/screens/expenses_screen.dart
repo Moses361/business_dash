@@ -106,7 +106,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+              ),
               child: const Text('Delete'),
             ),
           ],
@@ -169,7 +171,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Could not delete expense: $error'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -203,6 +205,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F8F7),
       appBar: AppBar(
         title: const Text(
           'Expenses',
@@ -218,8 +221,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAddExpense,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Expense'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'Add Expense',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: _buildBody(),
     );
@@ -243,7 +249,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 child: Column(
                   children: [
                     Icon(
-                      Icons.error_outline,
+                      Icons.error_outline_rounded,
                       size: 52,
                       color: Colors.red.shade400,
                     ),
@@ -257,9 +263,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: _loadExpenses,
-                      icon: const Icon(Icons.refresh),
+                      icon: const Icon(Icons.refresh_rounded),
                       label: const Text('Try Again'),
                     ),
                   ],
@@ -275,27 +281,13 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       onRefresh: _loadExpenses,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
         children: [
           _buildSummaryCard(),
 
           const SizedBox(height: 28),
 
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Expense History',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-              Text(
-                '${_expenses.length} '
-                '${_expenses.length == 1 ? 'expense' : 'expenses'}',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-              ),
-            ],
-          ),
+          _buildSectionHeader(),
 
           const SizedBox(height: 12),
 
@@ -315,10 +307,56 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     );
   }
 
+  Widget _buildSectionHeader() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Expense History',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF17221D),
+                  letterSpacing: -0.3,
+                ),
+              ),
+              SizedBox(height: 3),
+              Text(
+                'Track where your business money is going.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF66736D)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: const Color(0xFFE1E9E4)),
+          ),
+          child: Text(
+            '${_expenses.length}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF176B4D),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSummaryCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF8B3A3A), Color(0xFF5E2424)],
@@ -326,34 +364,96 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.payments_outlined, color: Colors.white),
-              SizedBox(width: 8),
-              Text(
-                'Total Expenses',
-                style: TextStyle(color: Colors.white70, fontSize: 15),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.payments_outlined,
+                  color: Colors.white,
+                  size: 23,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Expenses',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Money spent in recorded expenses',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 20),
+
           Text(
             _formatAmount(_totalExpenses),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 34,
-              fontWeight: FontWeight.bold,
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${_expenses.length} '
-            '${_expenses.length == 1 ? 'expense' : 'expenses'} recorded',
-            style: const TextStyle(color: Colors.white70),
+
+          const SizedBox(height: 14),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.receipt_long_outlined,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  '${_expenses.length} '
+                  '${_expenses.length == 1 ? 'expense' : 'expenses'} recorded',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -365,32 +465,54 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1E9E4)),
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 56,
-            color: Colors.grey.shade500,
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F8F6),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.receipt_long_outlined,
+              size: 30,
+              color: Color(0xFF66736D),
+            ),
           ),
-          const SizedBox(height: 16),
+
+          const SizedBox(height: 18),
+
           const Text(
             'No expenses recorded yet',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+              color: Color(0xFF17221D),
+            ),
           ),
+
           const SizedBox(height: 8),
+
           Text(
             'Record your first business expense '
             'to start tracking your spending.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600),
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
+
           const SizedBox(height: 20),
-          ElevatedButton.icon(
+
+          FilledButton.icon(
             onPressed: _openAddExpense,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: const Text('Add Expense'),
           ),
         ],
@@ -416,25 +538,37 @@ class _ExpenseTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: const Color(0xFFE1E9E4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFFFCEAEA),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.receipt_long_rounded, color: Colors.red),
+            child: Icon(
+              Icons.receipt_long_rounded,
+              color: Colors.red.shade700,
+              size: 24,
+            ),
           ),
 
-          const SizedBox(width: 14),
+          const SizedBox(width: 13),
 
           Expanded(
             child: Column(
@@ -445,41 +579,90 @@ class _ExpenseTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     fontSize: 15,
+                    color: Color(0xFF17221D),
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '${expense.category} • $date',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+
+                const SizedBox(height: 7),
+
+                Row(
+                  children: [
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F8F6),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Text(
+                          expense.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF52605A),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 7),
+
+                    Flexible(
+                      child: Text(
+                        date,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF7A8580),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
 
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 amount,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.red.shade700,
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 4),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, size: 20),
-                color: Colors.grey.shade600,
-                tooltip: 'Delete expense',
-                visualDensity: VisualDensity.compact,
+
+              const SizedBox(height: 7),
+
+              Material(
+                color: const Color(0xFFF7F8F7),
+                borderRadius: BorderRadius.circular(9),
+                child: InkWell(
+                  onTap: onDelete,
+                  borderRadius: BorderRadius.circular(9),
+                  child: Padding(
+                    padding: const EdgeInsets.all(7),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
