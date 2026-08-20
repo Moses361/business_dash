@@ -284,11 +284,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: _openAddProduct,
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Add product',
-          ),
-          IconButton(
             onPressed: _isLoading ? null : _loadProducts,
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh products',
@@ -547,12 +542,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
               'to start tracking inventory.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-            const SizedBox(height: 18),
-            ElevatedButton.icon(
-              onPressed: _openAddProduct,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add Product'),
             ),
           ],
         ),

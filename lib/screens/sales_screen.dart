@@ -510,12 +510,6 @@ class _SalesScreenState extends State<SalesScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _openRecordSale,
-              icon: const Icon(Icons.point_of_sale_rounded),
-              label: const Text('Record Sale'),
-            ),
           ],
         ),
       ),
