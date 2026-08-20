@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../repositories/product_repository.dart';
 import '../repositories/report_repository.dart';
+import 'about_veroon_screen.dart';
 import 'expenses_screen.dart';
 import 'products_screen.dart';
 import 'record_sale_screen.dart';
-import 'reports_screen.dart';
 import 'sales_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -17,7 +17,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ProductRepository _productRepository = ProductRepository();
-
   final ReportRepository _reportRepository = ReportRepository();
 
   int _productCount = 0;
@@ -44,7 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final now = DateTime.now();
-
       final today = DateTime(now.year, now.month, now.day);
 
       final results = await Future.wait([
@@ -73,72 +71,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _openRecordSale() async {
+  Future<void> _openRecordSale(BuildContext context) async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
     );
-
     if (!mounted) return;
-
     await _loadDashboardData();
   }
 
-  Future<void> _openProducts() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ProductsScreen()),
-    );
-
-    if (!mounted) return;
-
-    await _loadDashboardData();
-  }
-
-  Future<void> _openExpenses() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
-    );
-
-    if (!mounted) return;
-
-    await _loadDashboardData();
-  }
-
-  Future<void> _openSales() async {
+  Future<void> _openSales(BuildContext context) async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SalesScreen()),
     );
-
     if (!mounted) return;
-
     await _loadDashboardData();
   }
 
-  Future<void> _openReports() async {
+  Future<void> _openProducts(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const ReportsScreen()),
+      MaterialPageRoute(builder: (_) => const ProductsScreen()),
     );
-
     if (!mounted) return;
-
     await _loadDashboardData();
+  }
+
+  Future<void> _openExpenses(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+    );
+    if (!mounted) return;
+    await _loadDashboardData();
+  }
+
+  void _openAbout(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AboutVeroonScreen()),
+    );
   }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
-
-    if (hour < 12) {
-      return 'Good morning';
-    }
-
-    if (hour < 17) {
-      return 'Good afternoon';
-    }
-
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
     return 'Good evening';
   }
 
@@ -162,11 +141,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Dashboard',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
+        title: const Text('Dashboard'),
         actions: [
+          IconButton(
+            onPressed: () => _openAbout(context),
+            icon: const Icon(Icons.info_outline_rounded),
+            tooltip: 'About Veroon',
+          ),
           IconButton(
             onPressed: _isLoading ? null : _loadDashboardData,
             icon: const Icon(Icons.refresh_rounded),
@@ -184,21 +165,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildWelcome(),
               const SizedBox(height: 20),
-
               if (_errorMessage != null) ...[
                 _buildError(),
                 const SizedBox(height: 16),
               ],
-
               _buildProfitHero(summary),
               const SizedBox(height: 14),
-
               _buildKpiGrid(summary),
               const SizedBox(height: 24),
-
               _buildBusinessOverview(summary),
               const SizedBox(height: 24),
-
               _buildQuickActions(),
             ],
           ),
@@ -250,103 +226,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildProfitHero(ReportSummary summary) {
     final positive = summary.netProfit >= 0;
 
-    return _TappableCard(
-      onTap: _openReports,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: positive
-                ? const [Color(0xFF176B4D), Color(0xFF0F513A)]
-                : const [Color(0xFFB83B3B), Color(0xFF8E2929)],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: positive
+              ? const [Color(0xFF176B4D), Color(0xFF0F513A)]
+              : const [Color(0xFFB83B3B), Color(0xFF8E2929)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    "TODAY'S NET PROFIT",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    positive
-                        ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _isLoading ? '...' : _formatAmount(summary.netProfit),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              positive
-                  ? 'Your business is profitable today'
-                  : 'Your business needs attention today',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'View reports',
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "TODAY'S NET PROFIT",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.white.withValues(alpha: 0.72),
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
                   ),
                 ),
-                SizedBox(width: 4),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                  size: 15,
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
+                child: Icon(
+                  positive
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _isLoading ? '...' : _formatAmount(summary.netProfit),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            positive
+                ? 'Your business is profitable today'
+                : 'Your business needs attention today',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -354,13 +307,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildKpiGrid(ReportSummary summary) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= 600 ? 3 : 2;
-
         return GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
+            crossAxisCount: constraints.maxWidth >= 600 ? 3 : 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             mainAxisExtent: 100,
@@ -370,7 +321,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               title: 'Sales',
               value: _isLoading ? '...' : _formatAmount(summary.sales),
               icon: Icons.point_of_sale_rounded,
-              onTap: _openSales,
+              onTap: () => _openSales(context),
             ),
             _KpiCard(
               title: 'Gross Profit',
@@ -378,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.trending_up_rounded,
               iconColor: const Color(0xFF1B8A5A),
               iconBackground: const Color(0xFFE4F4EC),
-              onTap: _openReports,
+              onTap: () => _openSales(context),
             ),
             _KpiCard(
               title: 'Expenses',
@@ -386,7 +337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.receipt_long_rounded,
               iconColor: const Color(0xFFD64545),
               iconBackground: const Color(0xFFFCEAEA),
-              onTap: _openExpenses,
+              onTap: () => _openExpenses(context),
             ),
           ],
         );
@@ -414,7 +365,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 12),
-
         Row(
           children: [
             Expanded(
@@ -423,7 +373,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 value: _isLoading ? '...' : '$_productCount',
                 subtitle: 'in inventory',
                 icon: Icons.inventory_2_rounded,
-                onTap: _openProducts,
+                onTap: () => _openProducts(context),
               ),
             ),
             const SizedBox(width: 10),
@@ -439,14 +389,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 iconBackground: lowStock
                     ? const Color(0xFFFFF3DD)
                     : const Color(0xFFE4F4EC),
-                onTap: _openProducts,
+                onTap: () => _openProducts(context),
               ),
             ),
           ],
         ),
-
         const SizedBox(height: 10),
-
         Row(
           children: [
             Expanded(
@@ -455,7 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 value: _isLoading ? '...' : '${summary.transactions}',
                 subtitle: 'today',
                 icon: Icons.receipt_long_rounded,
-                onTap: _openSales,
+                onTap: () => _openSales(context),
               ),
             ),
             const SizedBox(width: 10),
@@ -465,7 +413,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 value: _isLoading ? '...' : '${summary.itemsSold}',
                 subtitle: 'today',
                 icon: Icons.shopping_bag_rounded,
-                onTap: _openSales,
+                onTap: () => _openSales(context),
               ),
             ),
           ],
@@ -487,24 +435,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-
         SizedBox(
           width: double.infinity,
           height: 52,
           child: ElevatedButton.icon(
-            onPressed: _openRecordSale,
+            onPressed: () => _openRecordSale(context),
             icon: const Icon(Icons.point_of_sale_rounded),
             label: const Text('Record Sale'),
           ),
         ),
-
         const SizedBox(height: 10),
-
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _openProducts,
+                onPressed: () => _openProducts(context),
                 icon: const Icon(Icons.inventory_2_outlined),
                 label: const Text('Products'),
                 style: OutlinedButton.styleFrom(
@@ -515,7 +460,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _openExpenses,
+                onPressed: () => _openExpenses(context),
                 icon: const Icon(Icons.receipt_long_outlined),
                 label: const Text('Expenses'),
                 style: OutlinedButton.styleFrom(
@@ -554,26 +499,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _TappableCard extends StatelessWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _TappableCard({required this.child, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: child,
-      ),
-    );
-  }
-}
-
 class _KpiCard extends StatelessWidget {
   final String title;
   final String value;
@@ -593,69 +518,53 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 19, color: iconColor),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF66736D),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF17221D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (onTap != null)
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: Color(0xFF9AA59F),
-              ),
-          ],
-        ),
-      ),
-    );
-
-    if (onTap == null) {
-      return card;
-    }
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: card,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 19, color: iconColor),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF66736D),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF17221D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -682,77 +591,61 @@ class _OverviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = Card(
-      child: Padding(
-        padding: const EdgeInsets.all(13),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 19),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF66736D),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF17221D),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF9AA59F),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (onTap != null)
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: Color(0xFF9AA59F),
-              ),
-          ],
-        ),
-      ),
-    );
-
-    if (onTap == null) {
-      return card;
-    }
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: card,
+        child: Padding(
+          padding: const EdgeInsets.all(13),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 19),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF66736D),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF17221D),
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF9AA59F),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
