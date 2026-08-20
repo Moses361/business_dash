@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
-import '../repositories/product_repository.dart';
 import 'add_product_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
@@ -14,7 +13,6 @@ class ProductDetailsScreen extends StatefulWidget {
 }
 
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
-  final ProductRepository _repository = ProductRepository();
   late Product _product;
 
   @override
@@ -24,20 +22,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _deleteProduct() async {
-    final shouldDelete = await showDialog<bool>(
+    final bool? shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete Product'),
-          content: Text('Are you sure you want to delete "${_product.name}"?'),
+          content: Text(
+            'Are you sure you want to delete '
+            '"${_product.name}"?',
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD64545),
+              ),
               child: const Text('Delete'),
             ),
           ],
@@ -45,29 +52,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       },
     );
 
-    if (shouldDelete != true) {
+    if (shouldDelete != true || !mounted) {
       return;
     }
 
-    await _repository.deleteProduct(_product.id!);
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Product deleted successfully')),
-    );
-
-    Navigator.pop(context, true);
+    // Do NOT delete here.
+    // Return the product to ProductsScreen so it can
+    // perform the deletion and provide the standard
+    // 4-second UNDO action.
+    Navigator.pop(context, _product);
   }
 
   Future<void> _editProduct() async {
-    final updatedProduct = await Navigator.push<Product>(
+    final Product? updatedProduct = await Navigator.push<Product>(
       context,
-      MaterialPageRoute(
-        builder: (context) => AddProductScreen(product: _product),
-      ),
+      MaterialPageRoute(builder: (_) => AddProductScreen(product: _product)),
     );
 
     if (!mounted || updatedProduct == null) {
@@ -78,21 +77,39 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _product = updatedProduct;
     });
 
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Product updated successfully')),
+      const SnackBar(
+        content: Text('Product updated successfully'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+        persist: false,
+      ),
     );
+  }
+
+  String _formatAmount(double amount) {
+    return 'KSh ${amount.toStringAsFixed(2)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final product = _product;
+    final Product product = _product;
 
-    final profit = product.sellingPrice - product.buyingPrice;
-    final stockValue = product.buyingPrice * product.stockQuantity;
+    final double profit = product.sellingPrice - product.buyingPrice;
+
+    final double stockValue = product.buyingPrice * product.stockQuantity;
+
+    final bool lowStock = product.stockQuantity <= 5;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F8F7),
       appBar: AppBar(
-        title: const Text('Product Details'),
+        title: const Text(
+          'Product Details',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             onPressed: _editProduct,
@@ -102,57 +119,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           IconButton(
             onPressed: _deleteProduct,
             tooltip: 'Delete product',
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline_rounded),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.green.shade700,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                  child: const Icon(
-                    Icons.inventory_2,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  product.name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  product.category,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildHero(product),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           const Text(
-            'Product Information',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'Product information',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF17221D),
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -160,32 +144,68 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           _InfoCard(
             icon: Icons.shopping_cart_outlined,
             title: 'Buying Price',
-            value: 'KSh ${product.buyingPrice.toStringAsFixed(0)}',
+            value: _formatAmount(product.buyingPrice),
           ),
 
           _InfoCard(
-            icon: Icons.sell_outlined,
+            icon: Icons.point_of_sale_outlined,
             title: 'Selling Price',
-            value: 'KSh ${product.sellingPrice.toStringAsFixed(0)}',
+            value: _formatAmount(product.sellingPrice),
+            valueColor: const Color(0xFF176B4D),
           ),
 
           _InfoCard(
-            icon: Icons.inventory_outlined,
+            icon: Icons.inventory_2_outlined,
             title: 'Current Stock',
             value: '${product.stockQuantity} units',
+            valueColor: lowStock ? const Color(0xFFD58A18) : null,
           ),
 
           _InfoCard(
-            icon: Icons.trending_up,
+            icon: profit >= 0
+                ? Icons.trending_up_rounded
+                : Icons.trending_down_rounded,
             title: 'Profit Per Unit',
-            value: 'KSh ${profit.toStringAsFixed(0)}',
+            value: _formatAmount(profit),
+            valueColor: profit >= 0
+                ? const Color(0xFF176B4D)
+                : const Color(0xFFD64545),
           ),
 
           _InfoCard(
             icon: Icons.account_balance_wallet_outlined,
             title: 'Stock Value',
-            value: 'KSh ${stockValue.toStringAsFixed(0)}',
+            value: _formatAmount(stockValue),
           ),
+
+          const SizedBox(height: 16),
+
+          if (lowStock)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3DD),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Color(0xFFD58A18)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'This product is low on stock. '
+                      'Consider restocking soon.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD58A18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           const SizedBox(height: 20),
 
@@ -193,7 +213,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 52,
+                  height: 50,
                   child: OutlinedButton.icon(
                     onPressed: _editProduct,
                     icon: const Icon(Icons.edit_outlined),
@@ -201,18 +221,152 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: SizedBox(
-                  height: 52,
+                  height: 50,
                   child: OutlinedButton.icon(
                     onPressed: _deleteProduct,
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Delete Product'),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: const Text('Delete'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFD64545),
+                      side: const BorderSide(color: Color(0xFFD64545)),
+                    ),
                   ),
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHero(Product product) {
+    final bool lowStock = product.stockQuantity <= 5;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF176B4D), Color(0xFF0F513A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_rounded,
+                  color: Colors.white,
+                  size: 27,
+                ),
+              ),
+              const Spacer(),
+              if (product.id != null)
+                Text(
+                  '#${product.id}',
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          Text(
+            product.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 25,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
+          ),
+
+          const SizedBox(height: 5),
+
+          Text(
+            product.category,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+
+          const SizedBox(height: 18),
+
+          Row(
+            children: [
+              Expanded(
+                child: _HeroMetric(
+                  label: 'Selling price',
+                  value: _formatAmount(product.sellingPrice),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _HeroMetric(
+                  label: 'Stock',
+                  value: '${product.stockQuantity}',
+                  warning: lowStock,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool warning;
+
+  const _HeroMetric({
+    required this.label,
+    required this.value,
+    this.warning = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: warning ? const Color(0xFFFFD27A) : Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -224,42 +378,50 @@ class _InfoCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String value;
+  final Color? valueColor;
 
   const _InfoCard({
     required this.icon,
     required this.title,
     required this.value,
+    this.valueColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFE1E9E4)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFFE1F1EA),
+              borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(icon, color: Colors.green.shade700),
+            child: Icon(icon, color: const Color(0xFF176B4D), size: 20),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               title,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              style: const TextStyle(color: Color(0xFF66736D), fontSize: 12),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: valueColor ?? const Color(0xFF17221D),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),

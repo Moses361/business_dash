@@ -15,15 +15,13 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: DashboardScreen()));
 
-    // Allow the first frame and asynchronous dashboard work to run.
     await tester.pump();
 
     expect(find.text('Dashboard'), findsOneWidget);
     expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
 
-    // Stable sections of the dashboard.
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Business Overview'), findsOneWidget);
-    expect(find.text('Quick Actions'), findsOneWidget);
+    expect(find.text('Record Sale'), findsOneWidget);
+    expect(find.text('Products'), findsAtLeastNWidgets(1));
+    expect(find.text('Expenses'), findsAtLeastNWidgets(1));
   });
 }

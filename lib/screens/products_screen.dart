@@ -37,6 +37,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     super.initState();
 
     _searchController.addListener(_filterProducts);
+
     _loadProducts();
   }
 
@@ -55,7 +56,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
 
     try {
-      final List<Product> products = await _repository.getProducts();
+      final products = await _repository.getProducts();
 
       if (!mounted) return;
 
@@ -76,13 +77,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
           content: Text('Could not load products: $error'),
           backgroundColor: _productsDanger,
           behavior: SnackBarBehavior.floating,
+          persist: false,
         ),
       );
     }
   }
 
   List<Product> _filterList(List<Product> products) {
-    final String query = _searchController.text.trim().toLowerCase();
+    final query = _searchController.text.trim().toLowerCase();
 
     Iterable<Product> result = products;
 
@@ -111,6 +113,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void _toggleLowStock() {
     setState(() {
       _showLowStockOnly = !_showLowStockOnly;
+
       _filteredProducts = _filterList(_products);
     });
   }
@@ -127,7 +130,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _openProduct(Product product) async {
-    await Navigator.push(
+    final Product? productToDelete = await Navigator.push<Product>(
       context,
       MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product)),
     );
@@ -135,6 +138,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (!mounted) return;
 
     await _loadProducts();
+
+    if (!mounted || productToDelete == null || productToDelete.id == null) {
+      return;
+    }
+
+    await _deleteProduct(productToDelete);
   }
 
   Future<void> _editProduct(Product product) async {
@@ -149,7 +158,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _deleteProduct(Product product) async {
-    if (product.id == null) return;
+    if (product.id == null) {
+      return;
+    }
 
     final bool? shouldDelete = await showDialog<bool>(
       context: context,
@@ -179,7 +190,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
       },
     );
 
-    if (shouldDelete != true) return;
+    if (shouldDelete != true) {
+      return;
+    }
 
     try {
       await _repository.deleteProduct(product.id!);
@@ -197,6 +210,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           content: Text('${product.name} deleted'),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 4),
+          persist: false,
           action: SnackBarAction(
             label: 'UNDO',
             onPressed: () async {
@@ -216,15 +230,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     content: Text('Product restored'),
                     behavior: SnackBarBehavior.floating,
                     duration: Duration(seconds: 2),
+                    persist: false,
                   ),
                 );
-              } catch (error) {
+              } catch (_) {
                 if (!mounted) return;
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Could not restore product.'),
                     behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                    persist: false,
                   ),
                 );
               }
@@ -240,6 +257,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
           content: Text('Could not delete product: $error'),
           backgroundColor: _productsDanger,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          persist: false,
         ),
       );
     }
@@ -247,12 +266,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final int totalStock = _products.fold<int>(
+    final totalStock = _products.fold<int>(
       0,
       (total, product) => total + product.stockQuantity,
     );
 
-    final int lowStockCount = _products
+    final lowStockCount = _products
         .where((product) => product.stockQuantity <= 5)
         .length;
 
@@ -277,6 +296,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'products_add_fab',
         onPressed: _openAddProduct,
         icon: const Icon(Icons.add_rounded),
         label: const Text(
@@ -477,7 +497,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
-          final Product product = _filteredProducts[index];
+          final product = _filteredProducts[index];
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -541,7 +561,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildNoSearchResults() {
-    final bool lowStockFilter = _showLowStockOnly;
+    final lowStockFilter = _showLowStockOnly;
 
     return Center(
       child: Padding(

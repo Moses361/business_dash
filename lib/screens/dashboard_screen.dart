@@ -5,6 +5,8 @@ import '../repositories/report_repository.dart';
 import 'expenses_screen.dart';
 import 'products_screen.dart';
 import 'record_sale_screen.dart';
+import 'reports_screen.dart';
+import 'sales_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +17,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ProductRepository _productRepository = ProductRepository();
+
   final ReportRepository _reportRepository = ReportRepository();
 
   int _productCount = 0;
@@ -41,6 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final now = DateTime.now();
+
       final today = DateTime(now.year, now.month, now.day);
 
       final results = await Future.wait([
@@ -69,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _openRecordSale(BuildContext context) async {
+  Future<void> _openRecordSale() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
@@ -80,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _loadDashboardData();
   }
 
-  Future<void> _openProducts(BuildContext context) async {
+  Future<void> _openProducts() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ProductsScreen()),
@@ -91,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _loadDashboardData();
   }
 
-  Future<void> _openExpenses(BuildContext context) async {
+  Future<void> _openExpenses() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ExpensesScreen()),
@@ -102,11 +106,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _loadDashboardData();
   }
 
+  Future<void> _openSales() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SalesScreen()),
+    );
+
+    if (!mounted) return;
+
+    await _loadDashboardData();
+  }
+
+  Future<void> _openReports() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportsScreen()),
+    );
+
+    if (!mounted) return;
+
+    await _loadDashboardData();
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
 
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
+    if (hour < 12) {
+      return 'Good morning';
+    }
+
+    if (hour < 17) {
+      return 'Good afternoon';
+    }
+
     return 'Good evening';
   }
 
@@ -130,7 +162,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text(
+          'Dashboard',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             onPressed: _isLoading ? null : _loadDashboardData,
@@ -139,20 +174,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-
       body: RefreshIndicator(
         onRefresh: _loadDashboardData,
-
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildWelcome(),
-
               const SizedBox(height: 20),
 
               if (_errorMessage != null) ...[
@@ -161,15 +191,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
 
               _buildProfitHero(summary),
-
               const SizedBox(height: 14),
 
               _buildKpiGrid(summary),
-
               const SizedBox(height: 24),
 
               _buildBusinessOverview(summary),
-
               const SizedBox(height: 24),
 
               _buildQuickActions(),
@@ -204,7 +231,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-
         Container(
           padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
@@ -224,89 +250,103 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildProfitHero(ReportSummary summary) {
     final positive = summary.netProfit >= 0;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: positive
-              ? const [Color(0xFF176B4D), Color(0xFF0F513A)]
-              : const [Color(0xFFB83B3B), Color(0xFF8E2929)],
-        ),
-
-        borderRadius: BorderRadius.circular(22),
-
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+    return _TappableCard(
+      onTap: _openReports,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: positive
+                ? const [Color(0xFF176B4D), Color(0xFF0F513A)]
+                : const [Color(0xFFB83B3B), Color(0xFF8E2929)],
           ),
-        ],
-      ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "TODAY'S NET PROFIT",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(.72),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    "TODAY'S NET PROFIT",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
                   ),
                 ),
-              ),
-
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.12),
-                  borderRadius: BorderRadius.circular(10),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    positive
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  positive
-                      ? Icons.trending_up_rounded
-                      : Icons.trending_down_rounded,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _isLoading ? '...' : _formatAmount(summary.netProfit),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              positive
+                  ? 'Your business is profitable today'
+                  : 'Your business needs attention today',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'View reports',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_forward_rounded,
                   color: Colors.white,
-                  size: 20,
+                  size: 15,
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            _isLoading ? '...' : _formatAmount(summary.netProfit),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+              ],
             ),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            positive
-                ? 'Your business is profitable today'
-                : 'Your business needs attention today',
-            style: TextStyle(
-              color: Colors.white.withOpacity(.78),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -314,39 +354,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildKpiGrid(ReportSummary summary) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth >= 600 ? 3 : 2;
+
         return GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: constraints.maxWidth >= 600 ? 3 : 2,
-
+            crossAxisCount: crossAxisCount,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             mainAxisExtent: 100,
           ),
-
           children: [
             _KpiCard(
               title: 'Sales',
               value: _isLoading ? '...' : _formatAmount(summary.sales),
               icon: Icons.point_of_sale_rounded,
+              onTap: _openSales,
             ),
-
             _KpiCard(
               title: 'Gross Profit',
               value: _isLoading ? '...' : _formatAmount(summary.grossProfit),
               icon: Icons.trending_up_rounded,
               iconColor: const Color(0xFF1B8A5A),
               iconBackground: const Color(0xFFE4F4EC),
+              onTap: _openReports,
             ),
-
             _KpiCard(
               title: 'Expenses',
               value: _isLoading ? '...' : _formatAmount(summary.expenses),
               icon: Icons.receipt_long_rounded,
               iconColor: const Color(0xFFD64545),
               iconBackground: const Color(0xFFFCEAEA),
+              onTap: _openExpenses,
             ),
           ],
         );
@@ -368,14 +408,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: Color(0xFF17221D),
           ),
         ),
-
         const SizedBox(height: 4),
-
         Text(
           'A quick snapshot of your operations.',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
-
         const SizedBox(height: 12),
 
         Row(
@@ -386,11 +423,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 value: _isLoading ? '...' : '$_productCount',
                 subtitle: 'in inventory',
                 icon: Icons.inventory_2_rounded,
+                onTap: _openProducts,
               ),
             ),
-
             const SizedBox(width: 10),
-
             Expanded(
               child: _OverviewTile(
                 title: 'Low stock',
@@ -403,6 +439,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 iconBackground: lowStock
                     ? const Color(0xFFFFF3DD)
                     : const Color(0xFFE4F4EC),
+                onTap: _openProducts,
               ),
             ),
           ],
@@ -418,17 +455,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 value: _isLoading ? '...' : '${summary.transactions}',
                 subtitle: 'today',
                 icon: Icons.receipt_long_rounded,
+                onTap: _openSales,
               ),
             ),
-
             const SizedBox(width: 10),
-
             Expanded(
               child: _OverviewTile(
                 title: 'Items sold',
                 value: _isLoading ? '...' : '${summary.itemsSold}',
                 subtitle: 'today',
                 icon: Icons.shopping_bag_rounded,
+                onTap: _openSales,
               ),
             ),
           ],
@@ -449,14 +486,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: Color(0xFF17221D),
           ),
         ),
-
         const SizedBox(height: 12),
 
         SizedBox(
           width: double.infinity,
           height: 52,
           child: ElevatedButton.icon(
-            onPressed: () => _openRecordSale(context),
+            onPressed: _openRecordSale,
             icon: const Icon(Icons.point_of_sale_rounded),
             label: const Text('Record Sale'),
           ),
@@ -468,7 +504,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _openProducts(context),
+                onPressed: _openProducts,
                 icon: const Icon(Icons.inventory_2_outlined),
                 label: const Text('Products'),
                 style: OutlinedButton.styleFrom(
@@ -476,12 +512,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-
             const SizedBox(width: 10),
-
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _openExpenses(context),
+                onPressed: _openExpenses,
                 icon: const Icon(Icons.receipt_long_outlined),
                 label: const Text('Expenses'),
                 style: OutlinedButton.styleFrom(
@@ -499,18 +533,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-
       decoration: BoxDecoration(
         color: Colors.red.shade50,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.red.shade100),
       ),
-
       child: Row(
         children: [
           Icon(Icons.error_outline, color: Colors.red.shade700),
           const SizedBox(width: 10),
-
           Expanded(
             child: Text(
               _errorMessage!,
@@ -523,12 +554,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+class _TappableCard extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _TappableCard({required this.child, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: child,
+      ),
+    );
+  }
+}
+
 class _KpiCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
   final Color iconColor;
   final Color iconBackground;
+  final VoidCallback? onTap;
 
   const _KpiCard({
     required this.title,
@@ -536,29 +588,25 @@ class _KpiCard extends StatelessWidget {
     required this.icon,
     this.iconColor = const Color(0xFF176B4D),
     this.iconBackground = const Color(0xFFE1F1EA),
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final card = Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-
               decoration: BoxDecoration(
                 color: iconBackground,
                 borderRadius: BorderRadius.circular(10),
               ),
-
               child: Icon(icon, size: 19, color: iconColor),
             ),
-
             const SizedBox(width: 9),
-
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -572,9 +620,7 @@ class _KpiCard extends StatelessWidget {
                       color: Color(0xFF66736D),
                     ),
                   ),
-
                   const SizedBox(height: 4),
-
                   Text(
                     value,
                     maxLines: 1,
@@ -588,8 +634,28 @@ class _KpiCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (onTap != null)
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Color(0xFF9AA59F),
+              ),
           ],
         ),
+      ),
+    );
+
+    if (onTap == null) {
+      return card;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: card,
       ),
     );
   }
@@ -602,6 +668,7 @@ class _OverviewTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final Color iconBackground;
+  final VoidCallback? onTap;
 
   const _OverviewTile({
     required this.title,
@@ -610,29 +677,25 @@ class _OverviewTile extends StatelessWidget {
     required this.icon,
     this.iconColor = const Color(0xFF176B4D),
     this.iconBackground = const Color(0xFFE1F1EA),
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final card = Card(
       child: Padding(
         padding: const EdgeInsets.all(13),
-
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-
               decoration: BoxDecoration(
                 color: iconBackground,
                 borderRadius: BorderRadius.circular(10),
               ),
-
               child: Icon(icon, color: iconColor, size: 19),
             ),
-
             const SizedBox(width: 9),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,9 +710,7 @@ class _OverviewTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-
                   const SizedBox(height: 2),
-
                   Text(
                     value,
                     style: const TextStyle(
@@ -658,7 +719,6 @@ class _OverviewTile extends StatelessWidget {
                       color: Color(0xFF17221D),
                     ),
                   ),
-
                   Text(
                     subtitle,
                     maxLines: 1,
@@ -671,8 +731,28 @@ class _OverviewTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onTap != null)
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Color(0xFF9AA59F),
+              ),
           ],
         ),
+      ),
+    );
+
+    if (onTap == null) {
+      return card;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: card,
       ),
     );
   }
