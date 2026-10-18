@@ -199,6 +199,143 @@ class DatabaseService {
     return file.path;
   }
 
+  /// Restores a Veroon JSON backup after validation and a safety export.
+  /// Existing records are replaced only after validation succeeds.
+  Future<Map<String, dynamic>> restoreDatabase(String backupFilePath) async {
+    final source = File(backupFilePath);
+
+    if (!await source.exists()) {
+      throw const FileSystemException('Backup file not found.');
+    }
+
+    final decoded = jsonDecode(await source.readAsString());
+
+    if (decoded is! Map) {
+      throw const FormatException('Invalid backup: expected a JSON object.');
+    }
+
+    final backup = Map<String, dynamic>.from(decoded);
+
+    if (backup['format'] != 'veroon_json_backup' ||
+        backup['formatVersion'] != 1 ||
+        backup['databaseVersion'] != _databaseVersion) {
+      throw const FormatException(
+        'Unsupported backup format or database version. '
+        'This app requires a Veroon version 1 backup for database version 7.',
+      );
+    }
+
+    final products = _validatedRecords(backup['products'], 'products', [
+      'id',
+      'name',
+      'category',
+      'buying_price',
+      'selling_price',
+      'stock_quantity',
+    ]);
+    final sales = _validatedRecords(backup['sales'], 'sales', [
+      'id',
+      'product_id',
+      'product_name',
+      'quantity',
+      'buying_price',
+      'selling_price',
+      'total_amount',
+      'created_at',
+    ]);
+    final expenses = _validatedRecords(backup['expenses'], 'expenses', [
+      'id',
+      'title',
+      'amount',
+      'category',
+      'created_at',
+    ]);
+
+    // Preserve the current database in a separate JSON safety copy first.
+    final safetyBackupPath = await exportDatabase();
+    final db = await database;
+
+    await db.transaction((txn) async {
+      // Delete dependent/history records first, then products.
+      await txn.delete(salesTable);
+      await txn.delete(expensesTable);
+      await txn.delete(productsTable);
+
+      for (final record in products) {
+        await txn.insert(
+          productsTable,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
+      for (final record in sales) {
+        await txn.insert(
+          salesTable,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
+      for (final record in expenses) {
+        await txn.insert(
+          expensesTable,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+    });
+
+    return {
+      'products': products.length,
+      'sales': sales.length,
+      'expenses': expenses.length,
+      'safetyBackupPath': safetyBackupPath,
+    };
+  }
+
+  List<Map<String, Object?>> _validatedRecords(
+    dynamic value,
+    String tableName,
+    List<String> requiredFields,
+  ) {
+    if (value is! List) {
+      throw FormatException('Invalid backup: $tableName must be a list.');
+    }
+
+    final records = <Map<String, Object?>>[];
+    final seenIds = <int>{};
+
+    for (final item in value) {
+      if (item is! Map) {
+        throw FormatException('Invalid record in $tableName.');
+      }
+
+      final record = Map<String, dynamic>.from(item);
+      for (final field in requiredFields) {
+        if (!record.containsKey(field) || record[field] == null) {
+          throw FormatException(
+            'A $tableName record is missing required field "$field".',
+          );
+        }
+      }
+
+      final rawId = record['id'];
+      if (rawId is! num || rawId.toInt() != rawId || rawId <= 0) {
+        throw FormatException('Invalid record ID in $tableName.');
+      }
+
+      final id = rawId.toInt();
+      if (!seenIds.add(id)) {
+        throw FormatException('Duplicate record ID $id in $tableName.');
+      }
+
+      records.add(Map<String, Object?>.from(record));
+    }
+
+    return records;
+  }
+
   /// Opens the Android sharing menu with the exported JSON backup.
   Future<void> shareDatabaseBackup() async {
     final filePath = await exportDatabase();

@@ -9,6 +9,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/expenses_screen.dart';
 import 'screens/products_screen.dart';
 import 'screens/reports_screen.dart';
+import 'screens/cloud_backup_screen.dart';
 import 'screens/sales_screen.dart';
 
 Future<void> main() async {
@@ -446,6 +447,7 @@ class _MainNavigationState extends State<MainNavigation> {
       SalesScreen(),
       ExpensesScreen(),
       ReportsScreen(),
+      CloudBackupScreen(),
     ];
   }
 
@@ -496,6 +498,11 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.analytics_outlined),
             selectedIcon: Icon(Icons.analytics_rounded),
             label: 'Reports',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.cloud_upload_outlined),
+            selectedIcon: Icon(Icons.cloud_upload),
+            label: 'Backup',
           ),
         ],
       ),
