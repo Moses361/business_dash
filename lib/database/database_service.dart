@@ -14,6 +14,12 @@ class DatabaseService {
   static const String salesTable = 'sales';
   static const String expensesTable = 'expenses';
 
+  // Metadata reserved for future offline-to-cloud synchronization.
+  static const String syncIdColumn = 'sync_id';
+  static const String syncStatusColumn = 'sync_status';
+  static const String updatedAtColumn = 'updated_at';
+  static const String deletedAtColumn = 'deleted_at';
+
   Database? _database;
 
   Future<Database> get database async {
