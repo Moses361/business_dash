@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "538138025601",
+    "project_id": "veroon-business-dashboard",
+    "storage_bucket": "veroon-business-dashboard.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:538138025601:android:43abed3a313fcbfa183780",
+        "android_client_info": {
+          "package_name": "com.example.business_dash"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDV8Ih_JUa3PUxvD1LNUiivWo34QsDAvE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

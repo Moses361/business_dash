@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 
+import 'auth/auth_gate.dart';
+
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/expenses_screen.dart';
 import 'screens/products_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/sales_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const VeroonApp());
 }
 
@@ -16,10 +24,7 @@ class VeroonApp extends StatelessWidget {
 
   static const String appName = 'Veroon';
 
-  // ─────────────────────────────────────────────────────────────
   // Veroon Design System
-  // ─────────────────────────────────────────────────────────────
-
   static const Color primary = Color(0xFF176B4D);
   static const Color primaryDark = Color(0xFF0F513A);
   static const Color primaryLight = Color(0xFFE1F1EA);
@@ -68,20 +73,14 @@ class VeroonApp extends StatelessWidget {
     return MaterialApp(
       title: appName,
       debugShowCheckedModeBanner: false,
-
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
-
         scaffoldBackgroundColor: background,
-
         fontFamily: 'Roboto',
-
         visualDensity: VisualDensity.adaptivePlatformDensity,
 
-        // ─────────────────────────────────────────────────────────
         // Typography
-        // ─────────────────────────────────────────────────────────
         textTheme: const TextTheme(
           displayLarge: TextStyle(
             color: textPrimary,
@@ -166,9 +165,7 @@ class VeroonApp extends StatelessWidget {
           ),
         ),
 
-        // ─────────────────────────────────────────────────────────
         // App Bar
-        // ─────────────────────────────────────────────────────────
         appBarTheme: const AppBarTheme(
           elevation: 0,
           scrolledUnderElevation: 0,
@@ -176,95 +173,73 @@ class VeroonApp extends StatelessWidget {
           foregroundColor: textPrimary,
           surfaceTintColor: Colors.transparent,
           centerTitle: false,
-
           titleTextStyle: TextStyle(
             color: textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
           ),
-
           iconTheme: IconThemeData(color: textPrimary, size: 23),
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Cards
-        // ─────────────────────────────────────────────────────────
         cardTheme: const CardThemeData(
           elevation: 0,
           color: surface,
           surfaceTintColor: Colors.transparent,
           margin: EdgeInsets.zero,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusLarge)),
             side: BorderSide(color: border),
           ),
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Inputs
-        // ─────────────────────────────────────────────────────────
         inputDecorationTheme: const InputDecorationTheme(
           filled: true,
           fillColor: surface,
-
           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-
           border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusMedium)),
             borderSide: BorderSide(color: border),
           ),
-
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusMedium)),
             borderSide: BorderSide(color: border),
           ),
-
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusMedium)),
             borderSide: BorderSide(color: primary, width: 1.7),
           ),
-
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusMedium)),
             borderSide: BorderSide(color: danger),
           ),
-
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusMedium)),
             borderSide: BorderSide(color: danger, width: 1.7),
           ),
-
           labelStyle: TextStyle(
             color: textSecondary,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-
           hintStyle: TextStyle(color: textMuted, fontSize: 14),
-
           prefixIconColor: textSecondary,
           suffixIconColor: textSecondary,
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Buttons
-        // ─────────────────────────────────────────────────────────
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             elevation: 0,
             backgroundColor: primary,
             foregroundColor: Colors.white,
-
             minimumSize: const Size(0, 50),
-
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radiusMedium),
             ),
-
             textStyle: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -276,15 +251,11 @@ class VeroonApp extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: primary,
             foregroundColor: Colors.white,
-
             minimumSize: const Size(0, 50),
-
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radiusMedium),
             ),
-
             textStyle: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -295,17 +266,12 @@ class VeroonApp extends StatelessWidget {
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             foregroundColor: primary,
-
             minimumSize: const Size(0, 50),
-
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-
             side: const BorderSide(color: primary, width: 1.2),
-
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radiusMedium),
             ),
-
             textStyle: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -324,38 +290,27 @@ class VeroonApp extends StatelessWidget {
           ),
         ),
 
-        // ─────────────────────────────────────────────────────────
-        // FAB
-        // ─────────────────────────────────────────────────────────
+        // Floating Action Button
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 3,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(radiusMedium)),
           ),
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Bottom Navigation
-        // ─────────────────────────────────────────────────────────
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
-
           elevation: 8,
-
           height: 76,
-
           indicatorColor: primaryLight,
-
           indicatorShape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(
@@ -371,7 +326,6 @@ class VeroonApp extends StatelessWidget {
               color: textSecondary,
             );
           }),
-
           iconTheme: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const IconThemeData(color: primary, size: 24);
@@ -381,25 +335,19 @@ class VeroonApp extends StatelessWidget {
           }),
         ),
 
-        // ─────────────────────────────────────────────────────────
-        // Dialogs / Sheets
-        // ─────────────────────────────────────────────────────────
+        // Dialogs and Sheets
         dialogTheme: DialogThemeData(
           backgroundColor: surface,
           surfaceTintColor: Colors.transparent,
-
           elevation: 8,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusXLarge),
           ),
-
           titleTextStyle: const TextStyle(
             color: textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w800,
           ),
-
           contentTextStyle: const TextStyle(
             color: textSecondary,
             fontSize: 14,
@@ -410,9 +358,7 @@ class VeroonApp extends StatelessWidget {
         bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: surface,
           surfaceTintColor: Colors.transparent,
-
           elevation: 8,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(radiusXLarge),
@@ -420,30 +366,22 @@ class VeroonApp extends StatelessWidget {
           ),
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Snackbar
-        // ─────────────────────────────────────────────────────────
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-
           backgroundColor: const Color(0xFF202824),
-
           contentTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMedium),
           ),
-
           insetPadding: const EdgeInsets.all(16),
         ),
 
-        // ─────────────────────────────────────────────────────────
-        // Dividers / Progress
-        // ─────────────────────────────────────────────────────────
+        // Dividers and Progress
         dividerTheme: const DividerThemeData(
           color: border,
           thickness: 1,
@@ -455,18 +393,14 @@ class VeroonApp extends StatelessWidget {
           linearTrackColor: primaryLight,
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Menus
-        // ─────────────────────────────────────────────────────────
         popupMenuTheme: PopupMenuThemeData(
           color: surface,
           surfaceTintColor: Colors.transparent,
           elevation: 5,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMedium),
           ),
-
           textStyle: const TextStyle(
             color: textPrimary,
             fontSize: 14,
@@ -474,27 +408,21 @@ class VeroonApp extends StatelessWidget {
           ),
         ),
 
-        // ─────────────────────────────────────────────────────────
         // Tooltips
-        // ─────────────────────────────────────────────────────────
         tooltipTheme: TooltipThemeData(
           decoration: BoxDecoration(
             color: const Color(0xFF202824),
             borderRadius: BorderRadius.circular(8),
           ),
-
           textStyle: const TextStyle(color: Colors.white, fontSize: 12),
         ),
       ),
-
-      home: const MainNavigation(),
+      home: const AuthGate(signedInHome: MainNavigation()),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Main Navigation
-// ─────────────────────────────────────────────────────────────────
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -526,13 +454,10 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-
         child: IndexedStack(index: _currentIndex, children: _screens),
       ),
-
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-
         onDestinationSelected: (index) {
           if (index < 0 || index >= _screens.length) {
             return;
@@ -546,32 +471,27 @@ class _MainNavigationState extends State<MainNavigation> {
             _currentIndex = index;
           });
         },
-
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard_rounded),
             label: 'Home',
           ),
-
           NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2_rounded),
             label: 'Products',
           ),
-
           NavigationDestination(
             icon: Icon(Icons.point_of_sale_outlined),
             selectedIcon: Icon(Icons.point_of_sale_rounded),
             label: 'Sales',
           ),
-
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long_rounded),
             label: 'Expenses',
           ),
-
           NavigationDestination(
             icon: Icon(Icons.analytics_outlined),
             selectedIcon: Icon(Icons.analytics_rounded),

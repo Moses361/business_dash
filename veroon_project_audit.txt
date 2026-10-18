@@ -1,0 +1,363 @@
+========== VEROON PROJECT AUDIT ==========
+Date: Fri Oct 16 10:22:07 EAST 2026
+Project directory: /c/Development/business_dash
+
+========== TOP-LEVEL FILES ==========
+./.flutter-plugins-dependencies
+./.gitignore
+./.idea/modules.xml
+./.idea/workspace.xml
+./.metadata
+./0
+./DEVELOPMENT_LOG.md
+./PROJECT_CONTEXT.md
+./README.md
+./TODO.md
+./Veroon App Documentation.docx
+./analysis_options.yaml
+./android/.gitignore
+./android/build.gradle.kts
+./android/business_dash_android.iml
+./android/gradle.properties
+./android/gradlew
+./android/gradlew.bat
+./android/hs_err_pid23416.log
+./android/hs_err_pid25960.log
+./android/hs_err_pid6304.log
+./android/local.properties
+./android/replay_pid23416.log
+./android/replay_pid6304.log
+./android/settings.gradle.kts
+./business_dash.iml
+./format
+./ios/.gitignore
+./lib/main.dart
+./linux/.gitignore
+./linux/CMakeLists.txt
+./macos/.gitignore
+./pubspec.lock
+./pubspec.yaml
+./test/product_repository_test.dart
+./test/widget_test.dart
+./veroon_project_audit.txt
+./web/favicon.png
+./web/index.html
+./web/manifest.json
+./windows/.gitignore
+./windows/CMakeLists.txt
+
+========== PUBSPEC.YAML ==========
+name: business_dash
+description: "Veroon App - Motorcycle Spare Parts Shop"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  sqflite: ^2.4.3
+  path: ^1.9.1
+  pdf: 3.13.0
+  printing: 5.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.4.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/veroon_app_logo.png
+========== DART SOURCE FILES ==========
+./lib/database/database_service.dart
+./lib/main.dart
+./lib/models/expense.dart
+./lib/models/product.dart
+./lib/models/sale.dart
+./lib/repositories/expense_repository.dart
+./lib/repositories/product_repository.dart
+./lib/repositories/report_repository.dart
+./lib/repositories/sale_repository.dart
+./lib/screens/about_veroon_screen.dart
+./lib/screens/add_expense_screen.dart
+./lib/screens/add_product_screen.dart
+./lib/screens/dashboard_screen.dart
+./lib/screens/expense_details_screen.dart
+./lib/screens/expenses_screen.dart
+./lib/screens/product_details_screen.dart
+./lib/screens/products_screen.dart
+./lib/screens/record_sale_screen.dart
+./lib/screens/reports_screen.dart
+./lib/screens/sale_details_screen.dart
+./lib/screens/sales_screen.dart
+./lib/services/report_pdf_service.dart
+./lib/widgets/dashboard_card.dart
+./lib/widgets/product_card.dart
+./lib/widgets/quick_action_card.dart
+./lib/widgets/veroon_header.dart
+./test/product_repository_test.dart
+./test/widget_test.dart
+
+========== DATABASE / AUTH / FIREBASE REFERENCES ==========
+./lib/database/database_service.dart:2:import 'package:sqflite/sqflite.dart';
+./lib/database/database_service.dart:4:class DatabaseService {
+./lib/database/database_service.dart:5:  static const String _databaseName = 'veroon.db';
+./lib/database/database_service.dart:6:  static const int _databaseVersion = 7;
+./lib/database/database_service.dart:12:  static Database? _database;
+./lib/database/database_service.dart:14:  Future<Database> get database async {
+./lib/database/database_service.dart:15:    if (_database != null) {
+./lib/database/database_service.dart:16:      return _database!;
+./lib/database/database_service.dart:19:    _database = await _initDatabase();
+./lib/database/database_service.dart:20:    return _database!;
+./lib/database/database_service.dart:23:  Future<Database> _initDatabase() async {
+./lib/database/database_service.dart:24:    final String databasesPath = await getDatabasesPath();
+./lib/database/database_service.dart:25:    final String path = join(databasesPath, _databaseName);
+./lib/database/database_service.dart:27:    final Database database = await openDatabase(
+./lib/database/database_service.dart:29:      version: _databaseVersion,
+./lib/database/database_service.dart:30:      onCreate: _createDatabase,
+./lib/database/database_service.dart:31:      onUpgrade: _upgradeDatabase,
+./lib/database/database_service.dart:34:    debugPrintDatabase(path);
+./lib/database/database_service.dart:36:    return database;
+./lib/database/database_service.dart:39:  Future<void> _createDatabase(Database database, int version) async {
+./lib/database/database_service.dart:40:    await database.execute('''
+./lib/database/database_service.dart:41:      CREATE TABLE $productsTable (
+./lib/database/database_service.dart:51:    await database.execute('''
+./lib/database/database_service.dart:52:      CREATE TABLE $salesTable (
+./lib/database/database_service.dart:64:    await database.execute('''
+./lib/database/database_service.dart:65:      CREATE TABLE $expensesTable (
+./lib/database/database_service.dart:74:    await _createIndexes(database);
+./lib/database/database_service.dart:77:  Future<void> _upgradeDatabase(
+./lib/database/database_service.dart:78:    Database database,
+./lib/database/database_service.dart:83:      await database.execute('''
+./lib/database/database_service.dart:84:        CREATE TABLE IF NOT EXISTS $expensesTable (
+./lib/database/database_service.dart:96:        await database.execute('''
+./lib/database/database_service.dart:107:        await database.execute('''
+./lib/database/database_service.dart:117:      await _createIndexes(database);
+./lib/database/database_service.dart:121:  Future<void> _createIndexes(Database database) async {
+./lib/database/database_service.dart:122:    await database.execute('''
+./lib/database/database_service.dart:127:    await database.execute('''
+./lib/database/database_service.dart:132:    await database.execute('''
+./lib/database/database_service.dart:137:    await database.execute('''
+./lib/database/database_service.dart:142:    await database.execute('''
+./lib/database/database_service.dart:147:    await database.execute('''
+./lib/database/database_service.dart:153:  void debugPrintDatabase(String path) {
+./lib/database/database_service.dart:155:    print('VEROON DATABASE');
+./lib/database/database_service.dart:156:    print('Database path: $path');
+./lib/database/database_service.dart:157:    print('Database version: $_databaseVersion');
+./lib/repositories/expense_repository.dart:1:import 'package:sqflite/sqflite.dart';
+./lib/repositories/expense_repository.dart:3:import '../database/database_service.dart';
+./lib/repositories/expense_repository.dart:7:  final DatabaseService _databaseService;
+./lib/repositories/expense_repository.dart:9:  ExpenseRepository({DatabaseService? databaseService})
+./lib/repositories/expense_repository.dart:10:    : _databaseService = databaseService ?? DatabaseService();
+./lib/repositories/expense_repository.dart:25:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:27:    return database.insert(DatabaseService.expensesTable, {
+./lib/repositories/expense_repository.dart:36:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:38:    return database.delete(
+./lib/repositories/expense_repository.dart:39:      DatabaseService.expensesTable,
+./lib/repositories/expense_repository.dart:46:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:48:    final rows = await database.query(
+./lib/repositories/expense_repository.dart:49:      DatabaseService.expensesTable,
+./lib/repositories/expense_repository.dart:57:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:59:    final rows = await database.query(
+./lib/repositories/expense_repository.dart:60:      DatabaseService.expensesTable,
+./lib/repositories/expense_repository.dart:70:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:72:    final result = await database.rawQuery('''
+./lib/repositories/expense_repository.dart:74:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/expense_repository.dart:81:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:83:    final result = await database.rawQuery(
+./lib/repositories/expense_repository.dart:86:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/expense_repository.dart:116:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:118:    final result = await database.rawQuery('''
+./lib/repositories/expense_repository.dart:120:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/expense_repository.dart:123:    return Sqflite.firstIntValue(result) ?? 0;
+./lib/repositories/expense_repository.dart:127:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:129:    final result = await database.rawQuery(
+./lib/repositories/expense_repository.dart:132:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/expense_repository.dart:138:    return Sqflite.firstIntValue(result) ?? 0;
+./lib/repositories/expense_repository.dart:155:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:174:    return database.rawQuery('''
+./lib/repositories/expense_repository.dart:179:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/expense_repository.dart:190:    final Database database = await _databaseService.database;
+./lib/repositories/expense_repository.dart:192:    return database.rawQuery(
+./lib/repositories/expense_repository.dart:198:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/product_repository.dart:1:﻿import 'package:sqflite/sqflite.dart';
+./lib/repositories/product_repository.dart:3:import '../database/database_service.dart';
+./lib/repositories/product_repository.dart:7:  final DatabaseService _databaseService;
+./lib/repositories/product_repository.dart:9:  ProductRepository({DatabaseService? databaseService})
+./lib/repositories/product_repository.dart:10:    : _databaseService = databaseService ?? DatabaseService();
+./lib/repositories/product_repository.dart:13:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:15:    final id = await database.insert(DatabaseService.productsTable, {
+./lib/repositories/product_repository.dart:29:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:35:    return database.update(
+./lib/repositories/product_repository.dart:36:      DatabaseService.productsTable,
+./lib/repositories/product_repository.dart:50:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:52:    final rows = await database.query(
+./lib/repositories/product_repository.dart:53:      DatabaseService.productsTable,
+./lib/repositories/product_repository.dart:85:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:87:    final result = await database.rawQuery(
+./lib/repositories/product_repository.dart:88:      'SELECT COUNT(*) AS count FROM ${DatabaseService.productsTable}',
+./lib/repositories/product_repository.dart:91:    final count = Sqflite.firstIntValue(result) ?? 0;
+./lib/repositories/product_repository.dart:99:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:101:    final result = await database.rawQuery(
+./lib/repositories/product_repository.dart:104:      FROM ${DatabaseService.productsTable}
+./lib/repositories/product_repository.dart:110:    final count = Sqflite.firstIntValue(result) ?? 0;
+./lib/repositories/product_repository.dart:118:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:120:    return database.delete(
+./lib/repositories/product_repository.dart:121:      DatabaseService.productsTable,
+./lib/repositories/product_repository.dart:135:    final Database database = await _databaseService.database;
+./lib/repositories/product_repository.dart:137:    return database.rawUpdate(
+./lib/repositories/product_repository.dart:139:      UPDATE ${DatabaseService.productsTable}
+./lib/repositories/report_repository.dart:1:import 'package:sqflite/sqflite.dart';
+./lib/repositories/report_repository.dart:3:import '../database/database_service.dart';
+./lib/repositories/report_repository.dart:70:  final DatabaseService _databaseService;
+./lib/repositories/report_repository.dart:72:  ReportRepository({DatabaseService? databaseService})
+./lib/repositories/report_repository.dart:73:    : _databaseService = databaseService ?? DatabaseService();
+./lib/repositories/report_repository.dart:85:    final Database database = await _databaseService.database;
+./lib/repositories/report_repository.dart:90:    final salesResult = await database.rawQuery(
+./lib/repositories/report_repository.dart:101:      FROM ${DatabaseService.salesTable}
+./lib/repositories/report_repository.dart:108:    final expensesResult = await database.rawQuery(
+./lib/repositories/report_repository.dart:111:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/report_repository.dart:148:    final Database database = await _databaseService.database;
+./lib/repositories/report_repository.dart:153:    final List<Map<String, dynamic>> salesRows = await database.rawQuery(
+./lib/repositories/report_repository.dart:162:      FROM ${DatabaseService.salesTable}
+./lib/repositories/report_repository.dart:171:    final List<Map<String, dynamic>> expenseRows = await database.rawQuery(
+./lib/repositories/report_repository.dart:176:      FROM ${DatabaseService.expensesTable}
+./lib/repositories/report_repository.dart:223:    final Database database = await _databaseService.database;
+./lib/repositories/report_repository.dart:228:    final List<Map<String, dynamic>> rows = await database.rawQuery(
+./lib/repositories/report_repository.dart:239:      FROM ${DatabaseService.salesTable} s
+./lib/repositories/report_repository.dart:240:      LEFT JOIN ${DatabaseService.productsTable} p
+./lib/repositories/report_repository.dart:264:    final Database database = await _databaseService.database;
+./lib/repositories/report_repository.dart:269:    final List<Map<String, dynamic>> rows = await database.rawQuery(
+./lib/repositories/report_repository.dart:282:      FROM ${DatabaseService.salesTable} s
+./lib/repositories/report_repository.dart:283:      LEFT JOIN ${DatabaseService.productsTable} p
+./lib/repositories/sale_repository.dart:1:import 'package:sqflite/sqflite.dart';
+./lib/repositories/sale_repository.dart:3:import '../database/database_service.dart';
+./lib/repositories/sale_repository.dart:7:  final DatabaseService _databaseService;
+./lib/repositories/sale_repository.dart:9:  SaleRepository({DatabaseService? databaseService})
+./lib/repositories/sale_repository.dart:10:    : _databaseService = databaseService ?? DatabaseService();
+./lib/repositories/sale_repository.dart:21:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:23:    return database.transaction<int>((transaction) async {
+./lib/repositories/sale_repository.dart:26:        UPDATE ${DatabaseService.productsTable}
+./lib/repositories/sale_repository.dart:38:      return transaction.insert(DatabaseService.salesTable, {
+./lib/repositories/sale_repository.dart:51:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:53:    final rows = await database.query(
+./lib/repositories/sale_repository.dart:54:      DatabaseService.salesTable,
+./lib/repositories/sale_repository.dart:62:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:64:    final rows = await database.query(
+./lib/repositories/sale_repository.dart:65:      DatabaseService.salesTable,
+./lib/repositories/sale_repository.dart:75:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:77:    final result = await database.rawQuery('''
+./lib/repositories/sale_repository.dart:79:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:95:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:97:    final result = await database.rawQuery(
+./lib/repositories/sale_repository.dart:100:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:110:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:112:    final result = await database.rawQuery('''
+./lib/repositories/sale_repository.dart:117:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:133:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:135:    final result = await database.rawQuery(
+./lib/repositories/sale_repository.dart:141:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:151:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:153:    final result = await database.rawQuery('''
+./lib/repositories/sale_repository.dart:158:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:165:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:167:    final result = await database.rawQuery(
+./lib/repositories/sale_repository.dart:173:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:183:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:185:    final result = await database.rawQuery('''
+./lib/repositories/sale_repository.dart:187:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:190:    return Sqflite.firstIntValue(result) ?? 0;
+./lib/repositories/sale_repository.dart:194:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:196:    final result = await database.rawQuery(
+./lib/repositories/sale_repository.dart:199:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:205:    return Sqflite.firstIntValue(result) ?? 0;
+./lib/repositories/sale_repository.dart:212:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:214:    return database.rawQuery(
+./lib/repositories/sale_repository.dart:224:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:238:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:257:    return database.rawQuery(
+./lib/repositories/sale_repository.dart:265:      FROM ${DatabaseService.salesTable}
+./lib/repositories/sale_repository.dart:279:    final Database database = await _databaseService.database;
+./lib/repositories/sale_repository.dart:298:    return database.rawQuery('''
+./lib/repositories/sale_repository.dart:307:      FROM ${DatabaseService.salesTable} s
+./lib/repositories/sale_repository.dart:308:      INNER JOIN ${DatabaseService.productsTable} p
+./linux/flutter/ephemeral/.plugin_symlinks/printing/analysis_options.yaml:15:    - avoid_bool_literals_in_conditional_expressions
+./linux/flutter/ephemeral/.plugin_symlinks/printing/analysis_options.yaml:40:    - prefer_if_elements_to_conditional_expressions
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/printing.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/printing_web.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/asset_utils.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/cache.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/callback.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/fonts/font.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/fonts/gfonts.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/fonts/manifest.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/interface.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/method_channel.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/method_channel_ffi.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/method_channel_js.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/mutex.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/pdfjs.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/platform_js.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/platform_os.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/actions.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/controller.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/custom.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/page.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/pdf_preview.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/raster.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/printer.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/printing.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/printing_info.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/print_job.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/lib/src/raster.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/test/document_test.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/test/info_test.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/test/printing_test.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./linux/flutter/ephemeral/.plugin_symlinks/printing/test/raster_test.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./pubspec.yaml:15:  sqflite: ^2.4.3
+./pubspec.yaml:25:  sqflite_common_ffi: ^2.4.2
+./test/product_repository_test.dart:2:import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+./test/product_repository_test.dart:9:    sqfliteFfiInit();
+./test/product_repository_test.dart:10:    databaseFactory = databaseFactoryFfi;
+./test/widget_test.dart:3:import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+./test/widget_test.dart:9:    sqfliteFfiInit();
+./test/widget_test.dart:10:    databaseFactory = databaseFactoryFfi;
+./windows/flutter/ephemeral/.plugin_symlinks/printing/analysis_options.yaml:15:    - avoid_bool_literals_in_conditional_expressions
+./windows/flutter/ephemeral/.plugin_symlinks/printing/analysis_options.yaml:40:    - prefer_if_elements_to_conditional_expressions
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/printing.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/printing_web.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/asset_utils.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/cache.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/callback.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/fonts/font.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/fonts/gfonts.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/fonts/manifest.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/interface.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/method_channel.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/method_channel_ffi.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/method_channel_js.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/mutex.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/pdfjs.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/platform_js.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/platform_os.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/actions.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/controller.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/custom.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/page.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/pdf_preview.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/preview/raster.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/printer.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/printing.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+./windows/flutter/ephemeral/.plugin_symlinks/printing/lib/src/printing_info.dart:12: * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
+========== END OF AUDIT ==========
