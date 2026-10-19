@@ -1,1 +1,24 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"veroon-business-dashboard","appId":"1:538138025601:android:43abed3a313fcbfa183780","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"veroon-business-dashboard","configurations":{"android":"1:538138025601:android:43abed3a313fcbfa183780"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "veroon-business-dashboard",
+          "appId": "1:538138025601:android:43abed3a313fcbfa183780",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "veroon-business-dashboard",
+          "configurations": {
+            "android": "1:538138025601:android:43abed3a313fcbfa183780"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
