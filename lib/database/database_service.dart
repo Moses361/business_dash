@@ -8,7 +8,7 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static const String _databaseName = 'veroon.db';
-  static const int _databaseVersion = 7;
+  static const int _databaseVersion = 8;
 
   static const String productsTable = 'products';
   static const String salesTable = 'sales';
@@ -83,6 +83,7 @@ class DatabaseService {
     ''');
 
     await _createIndexes(db);
+    await _ensureSyncMetadataSchema(db);
   }
 
   Future<void> _upgradeDatabase(
@@ -120,6 +121,72 @@ class DatabaseService {
 
     if (oldVersion < 7) {
       await _createIndexes(db);
+    }
+
+    if (oldVersion < 8) {
+      await _ensureSyncMetadataSchema(db);
+    }
+  }
+
+  Future<void> _ensureSyncMetadataValues(DatabaseExecutor db) async {
+    for (final table in <String>[productsTable, salesTable, expensesTable]) {
+      await db.execute(
+        'UPDATE $table SET sync_id = lower(hex(randomblob(16))) '
+        'WHERE sync_id IS NULL OR length(sync_id) = 0',
+      );
+      await db.execute(
+        "UPDATE $table SET sync_status = 'pending' "
+        'WHERE sync_status IS NULL OR length(sync_status) = 0',
+      );
+      await db.execute(
+        "UPDATE $table SET updated_at = "
+        "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        'WHERE updated_at IS NULL',
+      );
+    }
+  }
+
+  Future<void> _ensureSyncMetadataSchema(DatabaseExecutor db) async {
+    final tables = <String>[productsTable, salesTable, expensesTable];
+
+    for (final table in tables) {
+      final columns = await db.rawQuery('PRAGMA table_info($table)');
+      final additions = <String, String>{
+        syncIdColumn: 'TEXT',
+        syncStatusColumn: "TEXT NOT NULL DEFAULT 'pending'",
+        updatedAtColumn: 'TEXT',
+        deletedAtColumn: 'TEXT',
+      };
+
+      for (final column in additions.entries) {
+        if (!columns.any((row) => row['name'] == column.key)) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${column.key} ${column.value}',
+          );
+        }
+      }
+
+      await db.execute(
+        'UPDATE $table SET sync_id = lower(hex(randomblob(16))) '
+        'WHERE sync_id IS NULL OR length(sync_id) = 0',
+      );
+      await db.execute(
+        "UPDATE $table SET sync_status = 'pending' "
+        'WHERE sync_status IS NULL OR length(sync_status) = 0',
+      );
+      await db.execute(
+        "UPDATE $table SET updated_at = "
+        "strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        'WHERE updated_at IS NULL',
+      );
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_sync_id '
+        'ON $table(sync_id) WHERE sync_id IS NOT NULL',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_${table}_sync_status '
+        'ON $table(sync_status)',
+      );
     }
   }
 
@@ -222,12 +289,13 @@ class DatabaseService {
 
     final backup = Map<String, dynamic>.from(decoded);
 
+    final backupVersion = backup['databaseVersion'];
     if (backup['format'] != 'veroon_json_backup' ||
         backup['formatVersion'] != 1 ||
-        backup['databaseVersion'] != _databaseVersion) {
+        (backupVersion != 7 && backupVersion != _databaseVersion)) {
       throw const FormatException(
         'Unsupported backup format or database version. '
-        'This app requires a Veroon version 1 backup for database version 7.',
+        'This app supports Veroon version 1 backups from database versions 7 and 8.',
       );
     }
 
@@ -290,6 +358,8 @@ class DatabaseService {
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
       }
+
+      await _ensureSyncMetadataValues(txn);
     });
 
     return {
@@ -311,6 +381,7 @@ class DatabaseService {
 
     final records = <Map<String, Object?>>[];
     final seenIds = <int>{};
+    final seenSyncIds = <String>{};
 
     for (final item in value) {
       if (item is! Map) {
@@ -318,6 +389,7 @@ class DatabaseService {
       }
 
       final record = Map<String, dynamic>.from(item);
+
       for (final field in requiredFields) {
         if (!record.containsKey(field) || record[field] == null) {
           throw FormatException(
@@ -334,6 +406,20 @@ class DatabaseService {
       final id = rawId.toInt();
       if (!seenIds.add(id)) {
         throw FormatException('Duplicate record ID $id in $tableName.');
+      }
+
+      final rawSyncId = record[syncIdColumn];
+
+      if (rawSyncId != null) {
+        if (rawSyncId is! String) {
+          throw FormatException('Invalid sync ID in $tableName.');
+        }
+
+        final syncId = rawSyncId.trim();
+
+        if (syncId.isNotEmpty && !seenSyncIds.add(syncId)) {
+          throw FormatException('Duplicate sync ID in $tableName.');
+        }
       }
 
       records.add(Map<String, Object?>.from(record));

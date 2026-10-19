@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../database/database_service.dart';
 import '../models/sale.dart';
@@ -8,6 +9,8 @@ class SaleRepository {
 
   SaleRepository({DatabaseService? databaseService})
     : _databaseService = databaseService ?? DatabaseService();
+
+  String get _nowUtc => DateTime.now().toUtc().toIso8601String();
 
   Future<int> recordSale({required Sale sale}) async {
     if (sale.quantity <= 0) {
@@ -21,14 +24,19 @@ class SaleRepository {
     final Database database = await _databaseService.database;
 
     return database.transaction<int>((transaction) async {
+      final now = _nowUtc;
+
       final int updatedRows = await transaction.rawUpdate(
         '''
         UPDATE ${DatabaseService.productsTable}
-        SET stock_quantity = stock_quantity - ?
+        SET stock_quantity = stock_quantity - ?,
+            ${DatabaseService.syncStatusColumn} = 'pending',
+            ${DatabaseService.updatedAtColumn} = ?
         WHERE id = ?
           AND stock_quantity >= ?
+          AND ${DatabaseService.deletedAtColumn} IS NULL
         ''',
-        [sale.quantity, sale.productId, sale.quantity],
+        [sale.quantity, now, sale.productId, sale.quantity],
       );
 
       if (updatedRows == 0) {
@@ -43,6 +51,10 @@ class SaleRepository {
         'selling_price': sale.sellingPrice,
         'total_amount': sale.totalAmount,
         'created_at': sale.createdAt.toIso8601String(),
+        DatabaseService.syncIdColumn: const Uuid().v4(),
+        DatabaseService.syncStatusColumn: 'pending',
+        DatabaseService.updatedAtColumn: now,
+        DatabaseService.deletedAtColumn: null,
       });
     });
   }

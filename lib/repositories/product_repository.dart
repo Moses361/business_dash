@@ -1,5 +1,7 @@
 ﻿import 'package:sqflite/sqflite.dart';
 
+import 'package:uuid/uuid.dart';
+
 import '../database/database_service.dart';
 import '../models/product.dart';
 
@@ -9,8 +11,11 @@ class ProductRepository {
   ProductRepository({DatabaseService? databaseService})
     : _databaseService = databaseService ?? DatabaseService();
 
+  String get _nowUtc => DateTime.now().toUtc().toIso8601String();
+
   Future<int> insertProduct(Product product) async {
     final Database database = await _databaseService.database;
+    final now = _nowUtc;
 
     final id = await database.insert(DatabaseService.productsTable, {
       'name': product.name,
@@ -18,10 +23,13 @@ class ProductRepository {
       'buying_price': product.buyingPrice,
       'selling_price': product.sellingPrice,
       'stock_quantity': product.stockQuantity,
+      DatabaseService.syncIdColumn: const Uuid().v4(),
+      DatabaseService.syncStatusColumn: 'pending',
+      DatabaseService.updatedAtColumn: now,
+      DatabaseService.deletedAtColumn: null,
     });
 
     print('VEROON INSERT: ${product.name} -> ID $id');
-
     return id;
   }
 
@@ -40,8 +48,10 @@ class ProductRepository {
         'buying_price': product.buyingPrice,
         'selling_price': product.sellingPrice,
         'stock_quantity': product.stockQuantity,
+        DatabaseService.syncStatusColumn: 'pending',
+        DatabaseService.updatedAtColumn: _nowUtc,
       },
-      where: 'id = ?',
+      where: "id = ? AND deleted_at IS NULL",
       whereArgs: [product.id],
     );
   }
@@ -51,6 +61,7 @@ class ProductRepository {
 
     final rows = await database.query(
       DatabaseService.productsTable,
+      where: '${DatabaseService.deletedAtColumn} IS NULL',
       orderBy: 'id DESC',
     );
 
@@ -84,15 +95,13 @@ class ProductRepository {
   Future<int> getProductCount() async {
     final Database database = await _databaseService.database;
 
-    final result = await database.rawQuery(
-      'SELECT COUNT(*) AS count FROM ${DatabaseService.productsTable}',
-    );
+    final result = await database.rawQuery('''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseService.productsTable}
+      WHERE ${DatabaseService.deletedAtColumn} IS NULL
+      ''');
 
-    final count = Sqflite.firstIntValue(result) ?? 0;
-
-    print('VEROON PRODUCT COUNT: $count');
-
-    return count;
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> getLowStockCount({int threshold = 5}) async {
@@ -103,23 +112,25 @@ class ProductRepository {
       SELECT COUNT(*) AS count
       FROM ${DatabaseService.productsTable}
       WHERE stock_quantity <= ?
+        AND ${DatabaseService.deletedAtColumn} IS NULL
       ''',
       [threshold],
     );
 
-    final count = Sqflite.firstIntValue(result) ?? 0;
-
-    print('VEROON LOW STOCK COUNT: $count');
-
-    return count;
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> deleteProduct(int id) async {
     final Database database = await _databaseService.database;
 
-    return database.delete(
+    return database.update(
       DatabaseService.productsTable,
-      where: 'id = ?',
+      {
+        DatabaseService.deletedAtColumn: _nowUtc,
+        DatabaseService.syncStatusColumn: 'pending',
+        DatabaseService.updatedAtColumn: _nowUtc,
+      },
+      where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
       whereArgs: [id],
     );
   }
@@ -137,11 +148,14 @@ class ProductRepository {
     return database.rawUpdate(
       '''
       UPDATE ${DatabaseService.productsTable}
-      SET stock_quantity = stock_quantity - ?
+      SET stock_quantity = stock_quantity - ?,
+          ${DatabaseService.syncStatusColumn} = 'pending',
+          ${DatabaseService.updatedAtColumn} = ?
       WHERE id = ?
         AND stock_quantity >= ?
+        AND ${DatabaseService.deletedAtColumn} IS NULL
       ''',
-      [quantity, productId, quantity],
+      [quantity, _nowUtc, productId, quantity],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../database/database_service.dart';
 import '../models/expense.dart';
@@ -8,6 +9,8 @@ class ExpenseRepository {
 
   ExpenseRepository({DatabaseService? databaseService})
     : _databaseService = databaseService ?? DatabaseService();
+
+  String get _nowUtc => DateTime.now().toUtc().toIso8601String();
 
   Future<int> insertExpense(Expense expense) async {
     if (expense.amount <= 0) {
@@ -23,21 +26,32 @@ class ExpenseRepository {
     }
 
     final Database database = await _databaseService.database;
+    final now = _nowUtc;
 
     return database.insert(DatabaseService.expensesTable, {
       'title': expense.title.trim(),
       'amount': expense.amount,
       'category': expense.category.trim(),
       'created_at': expense.createdAt.toIso8601String(),
+      DatabaseService.syncIdColumn: const Uuid().v4(),
+      DatabaseService.syncStatusColumn: 'pending',
+      DatabaseService.updatedAtColumn: now,
+      DatabaseService.deletedAtColumn: null,
     });
   }
 
   Future<int> deleteExpense(int id) async {
     final Database database = await _databaseService.database;
+    final now = _nowUtc;
 
-    return database.delete(
+    return database.update(
       DatabaseService.expensesTable,
-      where: 'id = ?',
+      {
+        DatabaseService.deletedAtColumn: now,
+        DatabaseService.syncStatusColumn: 'pending',
+        DatabaseService.updatedAtColumn: now,
+      },
+      where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
       whereArgs: [id],
     );
   }
@@ -47,6 +61,7 @@ class ExpenseRepository {
 
     final rows = await database.query(
       DatabaseService.expensesTable,
+      where: '${DatabaseService.deletedAtColumn} IS NULL',
       orderBy: 'created_at DESC, id DESC',
     );
 
@@ -58,7 +73,9 @@ class ExpenseRepository {
 
     final rows = await database.query(
       DatabaseService.expensesTable,
-      where: 'created_at >= ? AND created_at < ?',
+      where:
+          'created_at >= ? AND created_at < ? '
+          'AND ${DatabaseService.deletedAtColumn} IS NULL',
       whereArgs: [start.toIso8601String(), end.toIso8601String()],
       orderBy: 'created_at ASC, id ASC',
     );
@@ -72,6 +89,7 @@ class ExpenseRepository {
     final result = await database.rawQuery('''
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM ${DatabaseService.expensesTable}
+      WHERE ${DatabaseService.deletedAtColumn} IS NULL
     ''');
 
     return _doubleValue(result, 'total');
@@ -85,6 +103,7 @@ class ExpenseRepository {
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM ${DatabaseService.expensesTable}
       WHERE created_at >= ? AND created_at < ?
+        AND ${DatabaseService.deletedAtColumn} IS NULL
       ''',
       [start.toIso8601String(), end.toIso8601String()],
     );
@@ -94,9 +113,7 @@ class ExpenseRepository {
 
   Future<double> getTodayExpenses() async {
     final now = DateTime.now();
-
     final start = DateTime(now.year, now.month, now.day);
-
     final end = start.add(const Duration(days: 1));
 
     return getExpensesBetweenTotal(start, end);
@@ -104,9 +121,7 @@ class ExpenseRepository {
 
   Future<double> getThisMonthExpenses() async {
     final now = DateTime.now();
-
     final start = DateTime(now.year, now.month, 1);
-
     final end = DateTime(now.year, now.month + 1, 1);
 
     return getExpensesBetweenTotal(start, end);
@@ -118,6 +133,7 @@ class ExpenseRepository {
     final result = await database.rawQuery('''
       SELECT COUNT(*) AS count
       FROM ${DatabaseService.expensesTable}
+      WHERE ${DatabaseService.deletedAtColumn} IS NULL
     ''');
 
     return Sqflite.firstIntValue(result) ?? 0;
@@ -131,6 +147,7 @@ class ExpenseRepository {
       SELECT COUNT(*) AS count
       FROM ${DatabaseService.expensesTable}
       WHERE created_at >= ? AND created_at < ?
+        AND ${DatabaseService.deletedAtColumn} IS NULL
       ''',
       [start.toIso8601String(), end.toIso8601String()],
     );
@@ -140,9 +157,7 @@ class ExpenseRepository {
 
   Future<int> getTodayExpenseCount() async {
     final now = DateTime.now();
-
     final start = DateTime(now.year, now.month, now.day);
-
     final end = start.add(const Duration(days: 1));
 
     return getExpenseCountBetween(start, end);
@@ -154,7 +169,7 @@ class ExpenseRepository {
   }) async {
     final Database database = await _databaseService.database;
 
-    final whereParts = <String>[];
+    final whereParts = <String>['${DatabaseService.deletedAtColumn} IS NULL'];
     final whereArgs = <dynamic>[];
 
     if (start != null) {
@@ -167,17 +182,13 @@ class ExpenseRepository {
       whereArgs.add(end.toIso8601String());
     }
 
-    final whereClause = whereParts.isEmpty
-        ? ''
-        : 'WHERE ${whereParts.join(' AND ')}';
-
     return database.rawQuery('''
       SELECT
         category,
         COUNT(*) AS count,
         COALESCE(SUM(amount), 0) AS total
       FROM ${DatabaseService.expensesTable}
-      $whereClause
+      WHERE ${whereParts.join(' AND ')}
       GROUP BY category
       ORDER BY total DESC
       ''', whereArgs);
@@ -197,6 +208,7 @@ class ExpenseRepository {
         COUNT(*) AS count
       FROM ${DatabaseService.expensesTable}
       WHERE created_at >= ? AND created_at < ?
+        AND ${DatabaseService.deletedAtColumn} IS NULL
       GROUP BY substr(created_at, 1, 10)
       ORDER BY date ASC
       ''',
