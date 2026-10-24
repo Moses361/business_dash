@@ -1,3 +1,5 @@
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +12,7 @@ class OwnerLoginScreen extends StatefulWidget {
 
 class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _businessName = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
 
@@ -17,9 +20,11 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
   String? _error;
+  String? _success;
 
   @override
   void dispose() {
+    _businessName.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -31,19 +36,68 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _success = null;
     });
 
-    try {
-      final auth = FirebaseAuth.instance;
+    final auth = FirebaseAuth.instance;
+    final email = _email.text.trim();
 
+    try {
       if (_creatingAccount) {
-        await auth.createUserWithEmailAndPassword(
-          email: _email.text.trim(),
+        final businessName = _businessName.text.trim();
+
+        final credential = await auth.createUserWithEmailAndPassword(
+          email: email,
           password: _password.text,
         );
+
+        final user = credential.user;
+        if (user == null) {
+          throw FirebaseAuthException(
+            code: 'account-creation-failed',
+            message: 'Your account could not be created. Please try again.',
+          );
+        }
+
+        try {
+          await FirebaseFirestore.instance
+              .collection('accessRequests')
+              .doc(user.uid)
+              .set({
+            'businessName': businessName,
+            'email': user.email,
+            'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {
+          // Keep the new account. Do not ask the user to register again.
+          if (!mounted) return;
+
+          setState(() {
+            _success =
+                'Your login account was created, but your access request '
+                'could not be submitted. Please sign in again later or '
+                'contact the administrator for assistance.';
+          });
+
+          await auth.signOut();
+          return;
+        }
+
+        if (!mounted) return;
+
+        setState(() {
+          _success =
+              'Your registration request has been submitted. '
+              'Please wait for an administrator to approve your access.';
+        });
+
+        // AuthGate will show the pending-access screen until an
+        // administrator creates the approved user profile.
+        await auth.signOut();
       } else {
         await auth.signInWithEmailAndPassword(
-          email: _email.text.trim(),
+          email: email,
           password: _password.text,
         );
       }
@@ -56,7 +110,8 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
           'user-not-found' ||
           'wrong-password' ||
           'invalid-credential' => 'Email or password is incorrect.',
-          'email-already-in-use' => 'An account already exists for this email.',
+          'email-already-in-use' =>
+            'An account already exists for this email. Please sign in.',
           'weak-password' =>
             'Choose a stronger password (at least 6 characters).',
           'too-many-requests' =>
@@ -65,6 +120,8 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
             'Network error. Check your internet connection.',
           'operation-not-allowed' =>
             'Email/Password sign-in is not enabled in Firebase.',
+          'account-creation-failed' =>
+            'Your account could not be created. Please try again.',
           _ => e.message ?? 'Authentication failed. Please try again.',
         };
       });
@@ -109,11 +166,34 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                     const SizedBox(height: 8),
                     Text(
                       _creatingAccount
-                          ? 'Create your owner account'
+                          ? 'Register your business'
                           : 'Sign in to your business dashboard',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 32),
+                    if (_creatingAccount) ...[
+                      TextFormField(
+                        controller: _businessName,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Business name',
+                          prefixIcon: Icon(Icons.store_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (!_creatingAccount) return null;
+                          final name = value?.trim() ?? '';
+                          if (name.isEmpty) {
+                            return 'Enter your business name.';
+                          }
+                          if (name.length > 100) {
+                            return 'Business name must be 100 characters or fewer.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
@@ -173,6 +253,16 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ],
+                    if (_success != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _success!,
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     FilledButton(
                       onPressed: _loading ? null : _submit,
@@ -187,7 +277,9 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                                 ),
                               )
                             : Text(
-                                _creatingAccount ? 'Create account' : 'Sign in',
+                                _creatingAccount
+                                    ? 'Submit registration'
+                                    : 'Sign in',
                               ),
                       ),
                     ),
@@ -198,12 +290,13 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                               setState(() {
                                 _creatingAccount = !_creatingAccount;
                                 _error = null;
+                                _success = null;
                               });
                             },
                       child: Text(
                         _creatingAccount
                             ? 'Already have an account? Sign in'
-                            : 'First time here? Create an account',
+                            : 'First time here? Register your business',
                       ),
                     ),
                   ],

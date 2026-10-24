@@ -63,3 +63,38 @@
 
 ## Next action
 Review the documentation diffs, commit only the two documentation files, and push the documentation update. Then inspect the safety stash and continue live-sync implementation in small, tested steps.
+
+## Current Status — 2026-10-24
+
+### Firebase Authentication and Registration
+- Firebase project: `veroon-business-dashboard`.
+- Firebase initialization and Android configuration are in place.
+- `AuthGate` checks authentication and the user's approved Firestore role.
+- The owner registration screen now includes a business-name field.
+- New registrations submit a pending request to `accessRequests/{uid}`.
+- Firestore rules have been edited locally to restrict registration requests and prevent client-side role assignment.
+- Firestore rules have not yet been deployed.
+- Registration and approval have not yet been verified against the live Firebase project.
+
+### Build and Testing
+- `flutter pub get` completed successfully.
+- `flutter analyze` reported 13 existing or outstanding lint issues, with no new registration-screen issues reported.
+- `git diff --check` reported no whitespace errors.
+- Android debug APK build and runtime testing are pending confirmation.
+
+### Architecture and Safety
+- Products, sales, and expenses currently use local SQLite.
+- Database synchronization metadata has been added, but live cloud synchronization is not implemented or verified.
+- Administrator approval remains a manual process.
+- Business-level data isolation and staff permissions need further design.
+- Preserve existing SQLite records and unrelated pending code changes.
+- Keep Firebase on the Spark plan unless a separate decision is made to change plans.
+
+### Immediate Next Steps
+1. Confirm the Android debug build result.
+2. Test registration with a dedicated test account.
+3. Verify the pending request in Firestore.
+4. Test that unapproved accounts cannot access the dashboard.
+5. Review and deploy Firestore rules only after testing.
+6. Implement a secure administrator approval process.
+7. Continue planning multi-business isolation and live synchronization.
