@@ -8,7 +8,7 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static const String _databaseName = 'veroon.db';
-  static const int _databaseVersion = 8;
+  static const int _databaseVersion = 9;
 
   static const String productsTable = 'products';
   static const String salesTable = 'sales';
@@ -63,6 +63,7 @@ class DatabaseService {
       CREATE TABLE sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         product_id INTEGER NOT NULL,
+        product_sync_id TEXT,
         product_name TEXT NOT NULL,
         quantity INTEGER NOT NULL,
         buying_price REAL NOT NULL,
@@ -126,6 +127,29 @@ class DatabaseService {
     if (oldVersion < 8) {
       await _ensureSyncMetadataSchema(db);
     }
+
+    if (oldVersion < 9) {
+      await _ensureSalesProductSyncId(db);
+    }
+  }
+
+  Future<void> _ensureSalesProductSyncId(DatabaseExecutor db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(sales)');
+
+    if (!columns.any((row) => row['name'] == 'product_sync_id')) {
+      await db.execute('ALTER TABLE sales ADD COLUMN product_sync_id TEXT');
+    }
+
+    // Link historical sales to the stable IDs of their existing products.
+    await db.execute('''
+      UPDATE sales
+      SET product_sync_id = (
+        SELECT products.sync_id
+        FROM products
+        WHERE products.id = sales.product_id
+      )
+      WHERE product_sync_id IS NULL
+    ''');
   }
 
   Future<void> _ensureSyncMetadataValues(DatabaseExecutor db) async {
@@ -292,10 +316,10 @@ class DatabaseService {
     final backupVersion = backup['databaseVersion'];
     if (backup['format'] != 'veroon_json_backup' ||
         backup['formatVersion'] != 1 ||
-        (backupVersion != 7 && backupVersion != _databaseVersion)) {
+        (backupVersion != 7 && backupVersion != 8 && backupVersion != 9)) {
       throw const FormatException(
         'Unsupported backup format or database version. '
-        'This app supports Veroon version 1 backups from database versions 7 and 8.',
+        'This app supports Veroon version 1 backups from database versions 7, 8, and 9.',
       );
     }
 
@@ -360,6 +384,7 @@ class DatabaseService {
       }
 
       await _ensureSyncMetadataValues(txn);
+      await _ensureSalesProductSyncId(txn);
     });
 
     return {

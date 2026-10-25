@@ -26,6 +26,21 @@ class SaleRepository {
     return database.transaction<int>((transaction) async {
       final now = _nowUtc;
 
+      final productRows = await transaction.query(
+        DatabaseService.productsTable,
+        columns: [DatabaseService.syncIdColumn],
+        where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+        whereArgs: [sale.productId],
+        limit: 1,
+      );
+
+      if (productRows.isEmpty) {
+        throw StateError('Product not found');
+      }
+
+      final productSyncId =
+          productRows.first[DatabaseService.syncIdColumn] as String?;
+
       final int updatedRows = await transaction.rawUpdate(
         '''
         UPDATE ${DatabaseService.productsTable}
@@ -45,6 +60,7 @@ class SaleRepository {
 
       return transaction.insert(DatabaseService.salesTable, {
         'product_id': sale.productId,
+        'product_sync_id': productSyncId,
         'product_name': sale.productName,
         'quantity': sale.quantity,
         'buying_price': sale.buyingPrice,
