@@ -358,7 +358,7 @@ class _RecordSaleScreenState extends State<RecordSaleScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              value: _selectedProduct?.id,
+              initialValue: _selectedProduct?.id,
               isExpanded: true,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.inventory_2_outlined),

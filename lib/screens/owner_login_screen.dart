@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -64,11 +63,11 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
               .collection('accessRequests')
               .doc(user.uid)
               .set({
-            'businessName': businessName,
-            'email': user.email,
-            'status': 'pending',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+                'businessName': businessName,
+                'email': user.email,
+                'status': 'pending',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
         } catch (_) {
           // Keep the new account. Do not ask the user to register again.
           if (!mounted) return;
@@ -257,9 +256,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                       const SizedBox(height: 16),
                       Text(
                         _success!,
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                        ),
+                        style: TextStyle(color: theme.colorScheme.primary),
                         textAlign: TextAlign.center,
                       ),
                     ],

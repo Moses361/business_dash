@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-
-import 'auth/auth_gate.dart';
-
 import 'package:firebase_core/firebase_core.dart';
 
+import 'auth/auth_gate.dart';
 import 'firebase_options.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/expenses_screen.dart';
@@ -11,6 +9,8 @@ import 'screens/products_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/cloud_backup_screen.dart';
 import 'screens/sales_screen.dart';
+import 'screens/staff_management_screen.dart';
+import 'services/business_membership_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +29,6 @@ class VeroonApp extends StatelessWidget {
   static const Color primary = Color(0xFF176B4D);
   static const Color primaryDark = Color(0xFF0F513A);
   static const Color primaryLight = Color(0xFFE1F1EA);
-
   static const Color secondary = Color(0xFF2F8061);
 
   static const Color background = Color(0xFFF5F8F6);
@@ -312,7 +311,7 @@ class VeroonApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
           ),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(
                 fontSize: 11,
@@ -327,7 +326,7 @@ class VeroonApp extends StatelessWidget {
               color: textSecondary,
             );
           }),
-          iconTheme: WidgetStateProperty.resolveWith((states) {
+          iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
             if (states.contains(WidgetState.selected)) {
               return const IconThemeData(color: primary, size: 24);
             }
@@ -434,6 +433,8 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  bool _isOwner = false;
+  bool _checkingRole = true;
 
   late final List<Widget> _screens;
 
@@ -441,6 +442,7 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
 
+    // Preserve the existing six navigation screens.
     _screens = const [
       DashboardScreen(),
       ProductsScreen(),
@@ -449,23 +451,94 @@ class _MainNavigationState extends State<MainNavigation> {
       ReportsScreen(),
       CloudBackupScreen(),
     ];
+
+    _checkOwnerRole();
+  }
+
+  Future<void> _checkOwnerRole() async {
+    try {
+      final membership = await BusinessMembershipService()
+          .getCurrentMembership();
+
+      if (!mounted) return;
+
+      setState(() {
+        _isOwner = membership['role'] == 'owner';
+        _checkingRole = false;
+      });
+    } catch (error) {
+      debugPrint('Unable to check staff-management access: $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isOwner = false;
+        _checkingRole = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard_rounded),
+        label: 'Home',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.inventory_2_outlined),
+        selectedIcon: Icon(Icons.inventory_2_rounded),
+        label: 'Products',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.point_of_sale_outlined),
+        selectedIcon: Icon(Icons.point_of_sale_rounded),
+        label: 'Sales',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.receipt_long_outlined),
+        selectedIcon: Icon(Icons.receipt_long_rounded),
+        label: 'Expenses',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.analytics_outlined),
+        selectedIcon: Icon(Icons.analytics_rounded),
+        label: 'Reports',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.cloud_upload_outlined),
+        selectedIcon: Icon(Icons.cloud_upload),
+        label: 'Backup',
+      ),
+    ];
+
+    final visibleScreens = <Widget>[..._screens];
+
+    // Add Staff only after confirming the user's owner role.
+    if (!_checkingRole && _isOwner) {
+      destinations.add(
+        const NavigationDestination(
+          icon: Icon(Icons.people_outline),
+          selectedIcon: Icon(Icons.people),
+          label: 'Staff',
+        ),
+      );
+
+      visibleScreens.add(const StaffManagementScreen());
+    }
+
+    final safeIndex = _currentIndex.clamp(0, visibleScreens.length - 1);
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _currentIndex, children: _screens),
+        child: IndexedStack(index: safeIndex, children: visibleScreens),
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
+        selectedIndex: safeIndex,
         onDestinationSelected: (index) {
-          if (index < 0 || index >= _screens.length) {
-            return;
-          }
-
-          if (index == _currentIndex) {
+          if (index < 0 || index >= visibleScreens.length) {
             return;
           }
 
@@ -473,38 +546,7 @@ class _MainNavigationState extends State<MainNavigation> {
             _currentIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2_rounded),
-            label: 'Products',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.point_of_sale_outlined),
-            selectedIcon: Icon(Icons.point_of_sale_rounded),
-            label: 'Sales',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long_rounded),
-            label: 'Expenses',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.analytics_outlined),
-            selectedIcon: Icon(Icons.analytics_rounded),
-            label: 'Reports',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.cloud_upload_outlined),
-            selectedIcon: Icon(Icons.cloud_upload),
-            label: 'Backup',
-          ),
-        ],
+        destinations: destinations,
       ),
     );
   }
