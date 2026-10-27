@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../repositories/product_repository.dart';
 import '../repositories/report_repository.dart';
+import '../services/business_sync_service.dart';
 import 'about_veroon_screen.dart';
+import 'cloud_backup_screen.dart';
 import 'expenses_screen.dart';
 import 'products_screen.dart';
 import 'record_sale_screen.dart';
+import 'reports_screen.dart';
 import 'sales_screen.dart';
+import 'staff_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,19 +22,49 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final ReportRepository _reportRepository = ReportRepository();
+  final BusinessSyncService _syncService = BusinessSyncService();
 
   int _productCount = 0;
   int _lowStockCount = 0;
-
   ReportSummary? _todaySummary;
-
   bool _isLoading = true;
+  bool _isSyncing = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+  }
+
+  Future<void> _syncNow() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+
+    try {
+      final result = await _syncService.syncNow();
+      if (!mounted) return;
+
+      final uploaded = result['uploaded'] as Map<String, dynamic>;
+      final downloaded = result['downloaded'] as Map<String, dynamic>;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sync complete: uploaded ${uploaded['total'] ?? 0}, '
+            'downloaded ${downloaded['total'] ?? 0} records.',
+          ),
+        ),
+      );
+
+      await _loadDashboardData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Sync failed: $error')));
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -61,7 +95,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     } catch (error) {
       debugPrint('Dashboard loading error: $error');
-
       if (!mounted) return;
 
       setState(() {
@@ -107,6 +140,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _loadDashboardData();
   }
 
+  Future<void> _openStaff(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StaffManagementScreen()),
+    );
+    if (!mounted) return;
+    await _loadDashboardData();
+  }
+
+  Future<void> _openBackup(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CloudBackupScreen()),
+    );
+    if (!mounted) return;
+    await _loadDashboardData();
+  }
+
+  void _openReports(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportsScreen()),
+    );
+  }
+
   void _openAbout(BuildContext context) {
     Navigator.push(
       context,
@@ -125,6 +183,179 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 'KSh ${amount.toStringAsFixed(2)}';
   }
 
+  Widget _sidebarItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    bool selected = false,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: selected ? const Color(0xFF176B4D) : Colors.grey.shade700,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          color: selected ? const Color(0xFF176B4D) : const Color(0xFF26332D),
+        ),
+      ),
+      selected: selected,
+      selectedTileColor: const Color(0xFFE1F1EA),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildSidebar() {
+    return Drawer(
+      width: 290,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+              color: const Color(0xFF176B4D),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: Colors.white24,
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  SizedBox(height: 14),
+                  Text(
+                    'Veroon',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Business Dashboard',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'WORKSPACE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _sidebarItem(
+                    icon: Icons.dashboard_rounded,
+                    title: 'Dashboard',
+                    selected: true,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  _sidebarItem(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'Products & Inventory',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openProducts(context);
+                    },
+                  ),
+                  _sidebarItem(
+                    icon: Icons.point_of_sale_rounded,
+                    title: 'Sales',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openSales(context);
+                    },
+                  ),
+                  _sidebarItem(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'Expenses',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openExpenses(context);
+                    },
+                  ),
+                  _sidebarItem(
+                    icon: Icons.add_shopping_cart_rounded,
+                    title: 'Record a Sale',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openRecordSale(context);
+                    },
+                  ),
+                  _sidebarItem(
+                    icon: Icons.bar_chart_rounded,
+                    title: 'Reports',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openReports(context);
+                    },
+                  ),
+                  _sidebarItem(
+                    icon: Icons.people_alt_outlined,
+                    title: 'Staff',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openStaff(context);
+                    },
+                  ),
+                  _sidebarItem(
+                    icon: Icons.cloud_upload_outlined,
+                    title: 'Backup',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openBackup(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(indent: 18, endIndent: 18),
+            _sidebarItem(
+              icon: Icons.info_outline_rounded,
+              title: 'About Veroon',
+              onTap: () {
+                Navigator.pop(context);
+                _openAbout(context);
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Text(
+                'Manage your business with confidence.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final summary =
@@ -140,9 +371,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
 
     return Scaffold(
+      drawer: _buildSidebar(),
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
+          IconButton(
+            onPressed: _isSyncing ? null : _syncNow,
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+            tooltip: 'Sync across devices',
+          ),
           IconButton(
             onPressed: () => _openAbout(context),
             icon: const Icon(Icons.info_outline_rounded),
