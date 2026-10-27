@@ -1,100 +1,45 @@
+# Veroon Business Dashboard — Project Context
 
-# BusinessDash - Project Context
+## Project Identity
 
-## Project Name
+- **Product name:** Veroon Business Dashboard
+- **Repository:** https://github.com/Moses361/business_dash
+- **Project directory:** `C:\Development\business_dash`
+- **Primary branch:** `main`
+- **Framework:** Flutter and Dart
+- **Platforms:** Android is the primary validated platform; web development remains a separate milestone.
+- **Firebase project:** `veroon-business-dashboard`
 
-BusinessDash
+Veroon is a business-management application for small businesses, initially targeting retail businesses such as motorcycle spare-parts shops, agrovets, hardware shops, electronics shops, and general retailers in Kenya.
 
-## Purpose
+## Current Project Status
 
-BusinessDash is a learning project and reusable foundation for building
-offline business-management applications for small businesses in Kenya.
+The project has progressed beyond the original static UI prototype.
 
-The long-term goal is to create customizable applications for businesses
-such as:
+The Android application has been installed and tested on a physical Samsung device. The owner sign-in flow, dashboard, sidebar navigation, product and sales workflows, and existing business data have been verified by the developer.
 
-- Motorcycle spare-parts shops
-- Agrovet shops
-- Hardware shops
-- Electronics shops
-- General retail businesses
+The developer has also tested business data synchronization across devices and reported that products and sales work as expected. The application reports successful cloud synchronization, including successful uploads in the tested workflows.
 
-The first potential client operates a motorcycle spare-parts
-store/workshop and an agrovet.
+These results represent developer testing. A formal release acceptance test, full backup-restoration test, and comprehensive security review remain necessary before final client handover.
 
-The application will initially focus on inventory, sales and basic
-business totals.
+## Technology and Services
 
----
-
-## Current Stage
-
-We are currently building the BusinessDash MVP.
-
-The visual application shell and initial product-management interface
-have been created.
-
-We are now moving from static/sample data toward real persistent
-local data using SQLite.
-
----
-
-## Development Environment
-
-- Operating System: Windows 11 Pro 64-bit
-- Computer: Lenovo ThinkPad T480s
-- Development tools: VS Code + Git Bash
-- Flutter: 3.47.0 stable
-- Dart: 3.13.0
-- Android SDK: 36
-- Android API: 36
-- Primary test phone: OPPO CPH2819
-- Android: 16 / API 36
-
-A separate Flutter test project exists and must remain separate:
-
-C:\Development\flutter_test_app
-
-That project is only a reference/testing project and must not be
-converted into the client application.
-
----
-
-## Project Location
-
-C:\Development\business_dash
-
-## GitHub Repository
-
-https://github.com/Moses361/business_dash
-
-## Git Branch
-
-main
-
----
-
-## Technology
-
-- Flutter
-- Dart
-- Android
-- SQLite/local offline database
-- Git
-- GitHub
-- VS Code
-
-A database package such as sqflite or drift will be selected when we
-implement the local database.
-
----
+- Flutter and Dart
+- Android SDK
+- SQLite for local business data
+- Firebase Authentication
+- Cloud Firestore for cloud-synchronized business records
+- Firebase Security Rules
+- Git and GitHub
+- VS Code and Git Bash
 
 ## Architecture
 
-The project should not place the entire application inside main.dart.
+The project separates application responsibilities across screens, models, services, repositories, and database components.
 
-Current structure:
+Relevant directories include:
 
+```text
 lib/
   main.dart
   screens/
@@ -103,212 +48,81 @@ lib/
   services/
   database/
   repositories/
+```
 
-We are introducing the architecture gradually so that the developer
-can understand the purpose of each layer.
+The actual implementation in the repository is the source of truth. Do not assume every planned module exists or is complete without inspecting its implementation.
 
----
+## Implemented and Tested Areas
 
-## Completed Features
+### Android application
 
-### Project foundation
+- Application launches on a physical Android device.
+- Dashboard and sidebar navigation are working.
+- Existing product and business data load after sign-in.
+- Owner sign-in has been tested.
+- Product and sales workflows have been exercised.
+- Developer-reported multi-device testing indicates that products and sales behave as expected across devices.
 
-- Flutter project created
-- Git initialized
-- Initial project commit created
-- Branch changed to main
-- GitHub repository connected
-- Flutter successfully builds the application
-- Application successfully runs on the OPPO test device
+### Local data and cloud synchronization
 
-### Application shell
+- Local business data is persisted in the application.
+- Firebase Authentication and Cloud Firestore are configured.
+- Firestore security rules have been deployed.
+- The application provides a synchronization workflow.
+- Successful uploads have been reported during testing.
 
-- BusinessDash application theme
-- Material 3
-- Bottom navigation
-- Dashboard screen
-- Products screen
-- Sales screen
+**Important:** Sync status messages alone do not prove that every record type, deletion, conflict, or account-permission scenario works. Continue testing these cases before release.
 
-### Dashboard
+### Backup and restoration
 
-- Business Dashboard heading
-- Products summary card
-- Today's Sales summary card
-- Low Stock summary card
-- View Products navigation
+The application includes backup and database-restoration functionality. Backup operations have reported success during developer testing.
 
-### Products UI
+Restoration must be tested independently using a known backup before this feature is considered release-verified.
 
-- Product search field
-- Category filter chips
-- Product cards
-- Product name
-- Product category
-- Stock display
-- Low-stock indication
-- Selling price
-- Add Product button
+### Authentication and access control
 
-### Add Product UI
+The application includes sign-in and a pending-access flow for accounts without an approved Veroon profile or staff membership.
 
-- Product name field
-- Category dropdown
-- Buying price field
-- Selling price field
-- Stock quantity field
-- Form validation
-- Save Product action
-- Navigation from Products to Add Product
+This pending-access behavior is intentional for a new device or an account awaiting approval. Preserve the existing access-control logic while making UI and branding changes.
 
----
+Owner and staff provisioning, business membership, and role-specific permissions must be reviewed before client handover.
 
-## Current Limitation
+## Firebase and Security Notes
 
-Products are currently sample/static data.
+- Firebase project ID: `veroon-business-dashboard`
+- Firestore rules are maintained in `firestore.rules`.
+- The `.firebaserc` file associates the local Firebase CLI configuration with the project.
+- Keep the default-deny behavior for unauthorized Firestore access.
+- Never commit passwords, service-account private keys, or other secrets.
+- Never weaken security rules merely to make synchronization work.
+- Verify membership and authorization on the server-enforced security boundary.
 
-The Add Product form currently demonstrates the UI and validation
-workflow but does not yet permanently save products.
-
-The next major milestone is to introduce a Product model and SQLite
-local database.
-
----
-
-## Next Feature
-
-### Real Product Storage
-
-Implement:
-
-1. Product model
-2. Local SQLite database
-3. Product table
-4. Product repository
-5. Save product
-6. Load products
-7. Display real products
-8. Edit product
-9. Delete product
-10. Search real products
-
----
-
-## Planned Feature Roadmap
-
-### Phase 1 - Product Management
-
-- Product model
-- SQLite database
-- Add product
-- View products
-- Edit product
-- Delete product
-- Search products
-- Categories
-- Low-stock detection
-
-### Phase 2 - Sales
-
-- Record sale
-- Select product
-- Enter quantity
-- Calculate sale total
-- Reduce stock automatically
-- Sales history
-- Daily sales total
-
-### Phase 3 - Dashboard
-
-- Real product count
-- Real sales total
-- Real low-stock count
-- Daily sales
-- Basic business statistics
-
-### Phase 4 - Business Features
-
-- Expenses
-- Profit calculations
-- Customers
-- Suppliers
-- Purchases
-- Stock adjustments
-- Reports
-- Date filtering
-
-### Phase 5 - Advanced Features
-
-- PDF/CSV export
-- Backup/restore
-- User accounts
-- Roles/permissions
-- Multiple devices
-- Cloud synchronization
-- Notifications
-- Advanced analytics
-
----
-
-## Important Design Principle
-
-BusinessDash should remain generic enough to be reused for different
-small businesses.
-
-Avoid hard-coding the application specifically for one client's
-business.
-
-The eventual client application can be customized from the BusinessDash
-foundation.
-
----
-
-## Important Development Principle
-
-The developer is learning Flutter and Dart.
-
-Every major feature should therefore be explained clearly:
-
-- What we are building
-- Why we are building it
-- Where the code belongs
-- What the code does
-- How to run it
-- How to test it
-- How to commit it
-
-Do not replace the entire project when an error occurs unless necessary.
-
-Diagnose errors step-by-step.
-
----
-
-## Current Known Issues
-
-- Products are still sample/static data.
-- Add Product does not yet save to SQLite.
-- Search is currently UI-only.
-- Category filters are currently UI-only.
-- Edit and Delete are not implemented.
-- Sales are currently sample/static data.
-- The Redmi/Xiaomi test phone with model 24117RN76G currently refuses
-  ADB installation with INSTALL_FAILED_USER_RESTRICTED.
-- OPPO CPH2819 remains the primary development/test device.
-
----
+Firebase client configuration is not the same as a service-account private key. Nevertheless, all Firebase access must be protected by appropriate authentication and security rules.
 
 ## Current Git Checkpoint
 
-The project should be committed whenever a meaningful feature is
-completed.
+The latest recorded application milestone is:
 
-Preferred commit style:
+`adde6c5 — Milestone: verify Android app and multi-device sync`
 
-- chore: create BusinessDash Flutter project
-- feat: add dashboard
-- feat: add products screen
-- feat: add product form
-- feat: add local database
-- feat: add sales
-- feat: calculate stock
-- feat: add reports
+Use Git commits before significant changes and preserve known-working versions.
+
+## Remaining Milestones
+
+1. Replace generic application icons with the approved Veroon branding and supplied images.
+2. Test synchronization for products, sales, expenses, edits, and deletions across devices.
+3. Verify owner and staff account creation and role-specific access.
+4. Test backup restoration using a known backup.
+5. Review security, error handling, and offline behavior.
+6. Test PDF/report output and business calculations.
+7. Complete release APK installation and final client acceptance testing.
+8. Plan and implement the separate web application milestone.
+
+## Development Principles
+
+- Preserve working functionality when updating individual screens.
+- Inspect the existing implementation before adding duplicate services or features.
+- Prefer small, verifiable changes with Git checkpoints.
+- Never record a planned or partially tested feature as fully complete.
+- Use test data during synchronization and restoration testing.
+- Protect client data and credentials throughout development.

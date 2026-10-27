@@ -174,3 +174,38 @@ Features should be implemented in small Git checkpoints.
 Commit:
 
 `chore: polish UI, update theme and docs`
+
+---
+
+## 2026-10-27 — Android and Multi-Device Testing Milestone
+
+### Confirmed Progress
+
+- Installed and launched the Flutter application on a physical Samsung SM A155F device.
+- Confirmed the owner sign-in flow works with the tested account.
+- Confirmed existing product and business data load after sign-in.
+- Confirmed dashboard and sidebar navigation work.
+- Exercised product and sales workflows.
+- Tested business data synchronization across devices; the developer reports that products and sales behaved as expected.
+- Observed successful synchronization/upload status messages during testing.
+- Preserved the milestone in GitHub commit `adde6c5`.
+
+### Existing Behavior Preserved
+
+The pending-access screen remains intentional. A newly used device or an account without an approved Veroon profile or staff membership must follow the existing authentication and approval flow.
+
+Branding and image improvements should not change the underlying access-control behavior.
+
+### Remaining Verification
+
+- Replace the generic bag icon with the approved Veroon branding and supplied image.
+- Verify all intended images across sign-in, pending-access, and other relevant screens.
+- Test synchronization for expenses, edits, deletions, and additional account scenarios.
+- Verify owner/staff membership and role-based permissions.
+- Test restoration from a known backup.
+- Complete release APK installation and final client acceptance tests.
+- Plan the separate web application milestone.
+
+### Documentation Accuracy
+
+Successful status messages and developer workflow tests are recorded as observed results. They are not a substitute for formal backup-restoration, authorization, or release-acceptance testing.
