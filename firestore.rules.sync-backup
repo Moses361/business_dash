@@ -1,0 +1,262 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function joinRequestPath(uid) {
+      return /databases/$(database)/documents/joinRequests/$(uid);
+    }
+
+    function memberPath(businessId, uid) {
+      return /databases/$(database)/documents/businesses/$(businessId)/members/$(uid);
+    }
+
+    function isActiveOwner(businessId) {
+      return signedIn()
+        && exists(userProfilePath(request.auth.uid))
+        && get(userProfilePath(request.auth.uid)).data.role == 'owner'
+        && get(userProfilePath(request.auth.uid)).data.businessId == businessId
+        && (
+          !('status' in get(userProfilePath(request.auth.uid)).data)
+          || get(userProfilePath(request.auth.uid)).data.status == 'active'
+        );
+    }
+
+    function isOwnerUser(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && exists(userProfilePath(userId))
+        && get(userProfilePath(userId)).data.role == 'owner'
+        && (
+          !('status' in get(userProfilePath(userId)).data)
+          || get(userProfilePath(userId)).data.status == 'active'
+        );
+    }
+
+    function validJoinRequestCreate() {
+      return request.resource.data.keys().hasAll([
+          'businessId', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'businessId', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.businessId is string
+        && request.resource.data.businessId.size() > 0
+        && request.resource.data.businessId.size() <= 128
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function validApprovedStaffRequest(userId, businessId, email) {
+      return existsAfter(joinRequestPath(userId))
+        && getAfter(joinRequestPath(userId)).data.businessId == businessId
+        && getAfter(joinRequestPath(userId)).data.email == email
+        && getAfter(joinRequestPath(userId)).data.status == 'approved'
+        && getAfter(joinRequestPath(userId)).data.reviewedBy == request.auth.uid;
+    }
+
+    function validNewStaffProfile(userId) {
+      let businessId = request.resource.data.businessId;
+      let email = request.resource.data.email;
+
+      return request.auth.uid != userId
+        && request.resource.data.keys().hasAll([
+          'businessId', 'role', 'status', 'email'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'businessId', 'role', 'status', 'email'
+        ])
+        && businessId is string
+        && businessId.size() > 0
+        && request.resource.data.role == 'staff'
+        && request.resource.data.status == 'active'
+        && email is string
+        && isActiveOwner(businessId)
+        && validApprovedStaffRequest(userId, businessId, email)
+        && existsAfter(memberPath(businessId, userId))
+        && getAfter(memberPath(businessId, userId)).data.role == 'staff'
+        && getAfter(memberPath(businessId, userId)).data.status == 'active'
+        && getAfter(memberPath(businessId, userId)).data.email == email;
+    }
+
+    // Business registration requests.
+    match /accessRequests/{userId} {
+      allow get: if signedIn()
+        && request.auth.uid == userId;
+
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll([
+          'businessName', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'businessName', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.businessName is string
+        && request.resource.data.businessName.size() > 0
+        && request.resource.data.businessName.size() <= 100
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    // User profiles and cloud backups.
+    match /users/{userId} {
+      allow get: if signedIn()
+        && request.auth.uid == userId;
+
+      allow list: if false;
+
+      // Only an owner-approved atomic operation can create a staff profile.
+      allow create: if signedIn()
+        && validNewStaffProfile(userId);
+
+      // Existing profiles cannot be changed by client applications.
+      allow update, delete: if false;
+
+      match /backups/{backupId} {
+        allow read, create, update: if isOwnerUser(userId);
+        allow delete: if false;
+
+        match /{collectionName}/{recordId} {
+          allow read, create, update: if isOwnerUser(userId)
+            && collectionName in ['products', 'sales', 'expenses'];
+          allow delete: if false;
+        }
+      }
+    }
+
+    // Staff join requests.
+    match /joinRequests/{userId} {
+      allow get: if signedIn()
+        && (
+          request.auth.uid == userId
+          || (
+            resource != null
+            && resource.data.businessId is string
+            && isActiveOwner(resource.data.businessId)
+          )
+        );
+
+      allow list: if signedIn()
+        && resource.data.businessId is string
+        && isActiveOwner(resource.data.businessId);
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && validJoinRequestCreate();
+
+      allow update: if signedIn()
+        && resource.data.businessId is string
+        && isActiveOwner(resource.data.businessId)
+        && resource.data.status == 'pending'
+        && request.resource.data.businessId == resource.data.businessId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.keys().hasAll([
+          'businessId', 'email', 'status',
+          'createdAt', 'reviewedAt', 'reviewedBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'businessId', 'email', 'status',
+          'createdAt', 'reviewedAt', 'reviewedBy'
+        ])
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.reviewedAt == request.time
+        && request.resource.data.reviewedBy == request.auth.uid
+        && (
+          request.resource.data.status == 'rejected'
+          || (
+            request.resource.data.status == 'approved'
+            && existsAfter(memberPath(
+              resource.data.businessId, userId
+            ))
+            && getAfter(memberPath(
+              resource.data.businessId, userId
+            )).data.role == 'staff'
+            && getAfter(memberPath(
+              resource.data.businessId, userId
+            )).data.status == 'active'
+            && getAfter(memberPath(
+              resource.data.businessId, userId
+            )).data.email == resource.data.email
+            && existsAfter(userProfilePath(userId))
+            && getAfter(userProfilePath(userId)).data.businessId
+              == resource.data.businessId
+            && getAfter(userProfilePath(userId)).data.role == 'staff'
+            && getAfter(userProfilePath(userId)).data.status == 'active'
+            && getAfter(userProfilePath(userId)).data.email
+              == resource.data.email
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // Business team membership directory.
+    match /businesses/{businessId}/members/{memberId} {
+      allow list: if isActiveOwner(businessId);
+
+      allow get: if signedIn()
+        && (
+          request.auth.uid == memberId
+          || isActiveOwner(businessId)
+        );
+
+      allow create: if isActiveOwner(businessId)
+        && request.auth.uid != memberId
+        && request.resource.data.keys().hasAll([
+          'role', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'role', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.role == 'staff'
+        && request.resource.data.status == 'active'
+        && request.resource.data.email is string
+        && request.resource.data.createdAt == request.time
+        && validApprovedStaffRequest(
+          memberId, businessId, request.resource.data.email
+        )
+        && existsAfter(userProfilePath(memberId))
+        && getAfter(userProfilePath(memberId)).data.businessId == businessId
+        && getAfter(userProfilePath(memberId)).data.role == 'staff'
+        && getAfter(userProfilePath(memberId)).data.status == 'active'
+        && getAfter(userProfilePath(memberId)).data.email
+          == request.resource.data.email;
+
+      allow update: if isActiveOwner(businessId)
+        && resource.data.role == 'staff'
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.keys().hasAll([
+          'role', 'email', 'status'
+        ])
+        && request.resource.data.status in ['active', 'disabled']
+        && request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['status']);
+
+      allow delete: if false;
+    }
+
+    // Deny everything not explicitly allowed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

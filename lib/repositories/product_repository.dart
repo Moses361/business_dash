@@ -1,5 +1,4 @@
 ﻿import 'package:sqflite/sqflite.dart';
-
 import 'package:uuid/uuid.dart';
 
 import '../database/database_service.dart';
@@ -33,6 +32,10 @@ class ProductRepository {
     return id;
   }
 
+  /// Updates product details without changing its stock quantity.
+  ///
+  /// Stock changes must go through [adjustStock] so every adjustment
+  /// is recorded in the inventory movement history.
   Future<int> updateProduct(Product product) async {
     final Database database = await _databaseService.database;
 
@@ -47,11 +50,10 @@ class ProductRepository {
         'category': product.category,
         'buying_price': product.buyingPrice,
         'selling_price': product.sellingPrice,
-        'stock_quantity': product.stockQuantity,
         DatabaseService.syncStatusColumn: 'pending',
         DatabaseService.updatedAtColumn: _nowUtc,
       },
-      where: "id = ? AND deleted_at IS NULL",
+      where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
       whereArgs: [product.id],
     );
   }
@@ -122,19 +124,101 @@ class ProductRepository {
 
   Future<int> deleteProduct(int id) async {
     final Database database = await _databaseService.database;
+    final now = _nowUtc;
 
     return database.update(
       DatabaseService.productsTable,
       {
-        DatabaseService.deletedAtColumn: _nowUtc,
+        DatabaseService.deletedAtColumn: now,
         DatabaseService.syncStatusColumn: 'pending',
-        DatabaseService.updatedAtColumn: _nowUtc,
+        DatabaseService.updatedAtColumn: now,
       },
       where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
       whereArgs: [id],
     );
   }
 
+  /// Adjusts stock and records the movement in the same transaction.
+  ///
+  /// Positive quantityDelta adds stock; negative quantityDelta removes it.
+  Future<int> adjustStock({
+    required int productId,
+    required int quantityDelta,
+    required String note,
+  }) async {
+    if (quantityDelta == 0) {
+      throw ArgumentError('Stock adjustment cannot be zero');
+    }
+
+    final normalizedNote = note.trim();
+
+    if (normalizedNote.isEmpty) {
+      throw ArgumentError('Please provide a reason for the adjustment');
+    }
+
+    final Database database = await _databaseService.database;
+
+    return database.transaction<int>((txn) async {
+      final products = await txn.query(
+        DatabaseService.productsTable,
+        columns: ['stock_quantity', DatabaseService.syncIdColumn],
+        where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+        whereArgs: [productId],
+        limit: 1,
+      );
+
+      if (products.isEmpty) {
+        throw StateError('Product not found');
+      }
+
+      final currentStock = products.single['stock_quantity'] as int;
+      final productSyncId =
+          products.single[DatabaseService.syncIdColumn] as String;
+
+      final newStock = currentStock + quantityDelta;
+
+      if (newStock < 0) {
+        throw StateError('Stock adjustment cannot make stock negative');
+      }
+
+      final now = _nowUtc;
+
+      final updatedCount = await txn.update(
+        DatabaseService.productsTable,
+        {
+          'stock_quantity': newStock,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+        },
+        where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+        whereArgs: [productId],
+      );
+
+      if (updatedCount != 1) {
+        throw StateError('Could not update product stock');
+      }
+
+      await txn.insert(DatabaseService.inventoryMovementsTable, {
+        DatabaseService.syncIdColumn: const Uuid().v4(),
+        'product_sync_id': productSyncId,
+        'movement_type': 'adjustment',
+        'quantity_delta': quantityDelta,
+        'source_sale_sync_id': null,
+        'note': normalizedNote,
+        'created_at': now,
+        DatabaseService.syncStatusColumn: 'pending',
+        DatabaseService.updatedAtColumn: now,
+        DatabaseService.deletedAtColumn: null,
+      });
+
+      return newStock;
+    });
+  }
+
+  /// Legacy stock-reduction helper.
+  ///
+  /// Prefer recordSale() for sales so sale deductions also create
+  /// an inventory movement record.
   Future<int> reduceStock({
     required int productId,
     required int quantity,
@@ -144,6 +228,7 @@ class ProductRepository {
     }
 
     final Database database = await _databaseService.database;
+    final now = _nowUtc;
 
     return database.rawUpdate(
       '''
@@ -155,7 +240,7 @@ class ProductRepository {
         AND stock_quantity >= ?
         AND ${DatabaseService.deletedAtColumn} IS NULL
       ''',
-      [quantity, _nowUtc, productId, quantity],
+      [quantity, now, productId, quantity],
     );
   }
 }

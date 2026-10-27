@@ -1,0 +1,114 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function isBusinessOwner(businessId) {
+      return signedIn()
+        && exists(userProfilePath(request.auth.uid))
+        && get(userProfilePath(request.auth.uid)).data.role == 'owner'
+        && get(userProfilePath(request.auth.uid)).data.businessId == businessId
+        && (
+          !('status' in get(userProfilePath(request.auth.uid)).data)
+          || get(userProfilePath(request.auth.uid)).data.status == 'active'
+        );
+    }
+
+    // Business registration requests
+    match /accessRequests/{userId} {
+      allow get: if signedIn()
+        && request.auth.uid == userId;
+
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll([
+          'businessName', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'businessName', 'email', 'status', 'createdAt'
+        ])
+        && request.resource.data.businessName is string
+        && request.resource.data.businessName.size() > 0
+        && request.resource.data.businessName.size() <= 100
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    // User profiles and existing cloud backups
+    match /users/{userId} {
+      allow read: if signedIn()
+        && request.auth.uid == userId;
+
+      // Profile writes remain restricted to trusted administration.
+      allow write: if false;
+
+      function isOwner() {
+        return signedIn()
+          && request.auth.uid == userId
+          && resource.data.role == 'owner'
+          && (
+            !('status' in resource.data)
+            || resource.data.status == 'active'
+          );
+      }
+
+      match /backups/{backupId} {
+        allow read, create, update: if isOwner();
+        allow delete: if false;
+
+        match /{collectionName}/{recordId} {
+          allow read, create, update: if isOwner()
+            && collectionName in ['products', 'sales', 'expenses'];
+          allow delete: if false;
+        }
+      }
+    }
+
+    // Business team membership directory
+    match /businesses/{businessId}/members/{memberId} {
+      // Owners can list only members of their own business.
+      allow list: if isBusinessOwner(businessId);
+
+      // Members can read their own record; owners can read their team.
+      allow get: if signedIn()
+        && (
+          request.auth.uid == memberId
+          || isBusinessOwner(businessId)
+        );
+
+      // Staff creation and deletion remain disabled for now.
+      allow create, delete: if false;
+
+      // Owners can activate or disable existing staff records.
+      allow update: if isBusinessOwner(businessId)
+        && resource.data.role == 'staff'
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.keys().hasAll([
+          'role', 'email', 'status'
+        ])
+        && request.resource.data.status in ['active', 'disabled']
+        && request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['status']);
+    }
+
+    // Deny everything not explicitly allowed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

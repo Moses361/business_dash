@@ -31,6 +31,22 @@ service cloud.firestore {
         );
     }
 
+    function isActiveBusinessMember(businessId) {
+      return signedIn()
+        && exists(userProfilePath(request.auth.uid))
+        && get(userProfilePath(request.auth.uid)).data.businessId == businessId
+        && (
+          isActiveOwner(businessId)
+          || (
+            get(userProfilePath(request.auth.uid)).data.role == 'staff'
+            && get(userProfilePath(request.auth.uid)).data.status == 'active'
+            && exists(memberPath(businessId, request.auth.uid))
+            && get(memberPath(businessId, request.auth.uid)).data.role == 'staff'
+            && get(memberPath(businessId, request.auth.uid)).data.status == 'active'
+          )
+        );
+    }
+
     function isOwnerUser(userId) {
       return signedIn()
         && request.auth.uid == userId
@@ -250,6 +266,58 @@ service cloud.firestore {
         && request.resource.data.status in ['active', 'disabled']
         && request.resource.data.diff(resource.data)
              .affectedKeys().hasOnly(['status']);
+
+      allow delete: if false;
+    }
+
+    // Business data synchronization: only active members of this business.
+    match /businesses/{businessId}/{collectionName}/{recordId} {
+      function validSyncRecord() {
+        return request.resource.data.keys().hasAll([
+            'sync_id', 'sync_status', 'updated_at', 'deleted_at'
+          ])
+          && request.resource.data.sync_id == recordId
+          && request.resource.data.sync_status == 'synced'
+          && request.resource.data.updated_at is string
+          && (
+            request.resource.data.deleted_at == null
+            || request.resource.data.deleted_at is string
+          )
+          && (
+            (
+              collectionName == 'products'
+              && request.resource.data.name is string
+              && request.resource.data.category is string
+              && request.resource.data.buying_price is number
+              && request.resource.data.selling_price is number
+              && request.resource.data.stock_quantity is number
+            )
+            || (
+              collectionName == 'expenses'
+              && request.resource.data.title is string
+              && request.resource.data.category is string
+              && request.resource.data.amount is number
+              && request.resource.data.created_at is string
+            )
+            || (
+              collectionName == 'sales'
+              && request.resource.data.product_sync_id is string
+              && request.resource.data.product_name is string
+              && request.resource.data.quantity is number
+              && request.resource.data.buying_price is number
+              && request.resource.data.selling_price is number
+              && request.resource.data.total_amount is number
+              && request.resource.data.created_at is string
+            )
+          );
+      }
+
+      allow get, list: if isActiveBusinessMember(businessId)
+        && collectionName in ['products', 'sales', 'expenses'];
+
+      allow create, update: if isActiveBusinessMember(businessId)
+        && collectionName in ['products', 'sales', 'expenses']
+        && validSyncRecord();
 
       allow delete: if false;
     }

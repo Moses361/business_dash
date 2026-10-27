@@ -1,0 +1,82 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Registration requests
+    match /accessRequests/{userId} {
+      // Users can read only their own request.
+      allow get: if request.auth != null
+                 && request.auth.uid == userId;
+
+      // Prevent users from listing registration requests.
+      allow list: if false;
+
+      // Users may create a pending request for themselves.
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.keys().hasAll([
+                      'businessName',
+                      'email',
+                      'status',
+                      'createdAt'
+                    ])
+                    && request.resource.data.keys().hasOnly([
+                      'businessName',
+                      'email',
+                      'status',
+                      'createdAt'
+                    ])
+                    && request.resource.data.businessName is string
+                    && request.resource.data.businessName.size() > 0
+                    && request.resource.data.businessName.size() <= 100
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.createdAt == request.time;
+
+      // Clients cannot approve, edit, or delete requests.
+      allow update, delete: if false;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      // Users may read only their own profile.
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+
+      // Profile creation and changes must happen through
+      // a trusted administrative process.
+      allow write: if false;
+
+      function isOwner() {
+        return request.auth != null
+          && request.auth.uid == userId
+          && get(
+            /databases/$(database)/documents/users/$(userId)
+          ).data.role == 'owner';
+      }
+
+      // Existing cloud backups
+      match /backups/{backupId} {
+        allow read, create, update: if isOwner();
+        allow delete: if false;
+
+        match /{collectionName}/{recordId} {
+          allow read, create, update: if isOwner()
+            && collectionName in [
+              'products',
+              'sales',
+              'expenses'
+            ];
+          allow delete: if false;
+        }
+      }
+    }
+
+    // Deny all other access by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

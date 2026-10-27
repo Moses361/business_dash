@@ -25,6 +25,8 @@ class SaleRepository {
 
     return database.transaction<int>((transaction) async {
       final now = _nowUtc;
+      final saleSyncId = const Uuid().v4();
+      final movementSyncId = const Uuid().v4();
 
       final productRows = await transaction.query(
         DatabaseService.productsTable,
@@ -40,6 +42,10 @@ class SaleRepository {
 
       final productSyncId =
           productRows.first[DatabaseService.syncIdColumn] as String?;
+
+      if (productSyncId == null || productSyncId.isEmpty) {
+        throw StateError('Product synchronization ID is missing');
+      }
 
       final int updatedRows = await transaction.rawUpdate(
         '''
@@ -58,7 +64,7 @@ class SaleRepository {
         throw StateError('Insufficient stock or product not found');
       }
 
-      return transaction.insert(DatabaseService.salesTable, {
+      final saleId = await transaction.insert(DatabaseService.salesTable, {
         'product_id': sale.productId,
         'product_sync_id': productSyncId,
         'product_name': sale.productName,
@@ -67,11 +73,26 @@ class SaleRepository {
         'selling_price': sale.sellingPrice,
         'total_amount': sale.totalAmount,
         'created_at': sale.createdAt.toIso8601String(),
-        DatabaseService.syncIdColumn: const Uuid().v4(),
+        DatabaseService.syncIdColumn: saleSyncId,
         DatabaseService.syncStatusColumn: 'pending',
         DatabaseService.updatedAtColumn: now,
         DatabaseService.deletedAtColumn: null,
       });
+
+      await transaction.insert(DatabaseService.inventoryMovementsTable, {
+        'sync_id': movementSyncId,
+        'product_sync_id': productSyncId,
+        'movement_type': 'sale',
+        'quantity_delta': -sale.quantity,
+        'source_sale_sync_id': saleSyncId,
+        'note': 'Stock deducted for sale',
+        'created_at': now,
+        DatabaseService.syncStatusColumn: 'pending',
+        DatabaseService.updatedAtColumn: now,
+        DatabaseService.deletedAtColumn: null,
+      });
+
+      return saleId;
     });
   }
 

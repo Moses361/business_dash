@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -22,20 +21,17 @@ void main() {
   });
 
   setUp(() async {
-    temporaryDirectory =
-        await Directory.systemTemp.createTemp('veroon_sale_test_');
+    temporaryDirectory = await Directory.systemTemp.createTemp(
+      'veroon_sale_test_',
+    );
 
     databaseService = DatabaseService(
       testDatabasePath: '${temporaryDirectory.path}/test.db',
     );
 
-    productRepository = ProductRepository(
-      databaseService: databaseService,
-    );
+    productRepository = ProductRepository(databaseService: databaseService);
 
-    saleRepository = SaleRepository(
-      databaseService: databaseService,
-    );
+    saleRepository = SaleRepository(databaseService: databaseService);
   });
 
   tearDown(() async {
@@ -58,10 +54,7 @@ void main() {
     );
   }
 
-  Sale makeSale({
-    required int productId,
-    int quantity = 2,
-  }) {
+  Sale makeSale({required int productId, int quantity = 2}) {
     return Sale(
       productId: productId,
       productName: 'Test Brake Pads',
@@ -73,7 +66,7 @@ void main() {
     );
   }
 
-  test('Recording a sale reduces stock and saves the sale', () async {
+  test('Recording a sale reduces stock and records its movement', () async {
     final productId = await createProduct(stock: 10);
 
     final saleId = await saleRepository.recordSale(
@@ -82,12 +75,41 @@ void main() {
 
     final products = await productRepository.getProducts();
     final sales = await saleRepository.getSales();
+    final db = await databaseService.database;
+
+    final saleRows = await db.query(
+      DatabaseService.salesTable,
+      where: 'id = ?',
+      whereArgs: [saleId],
+    );
+
+    final saleSyncId = saleRows.single[DatabaseService.syncIdColumn] as String;
+
+    final movements = await db.query(
+      DatabaseService.inventoryMovementsTable,
+      where: 'source_sale_sync_id = ?',
+      whereArgs: [saleSyncId],
+    );
 
     expect(saleId, greaterThan(0));
     expect(products.single.stockQuantity, 7);
     expect(sales, hasLength(1));
     expect(sales.single.quantity, 3);
     expect(sales.single.totalAmount, 7500);
+
+    expect(movements, hasLength(1));
+    expect(movements.single['movement_type'], 'sale');
+    expect(movements.single['quantity_delta'], -3);
+    expect(
+      movements.single['product_sync_id'],
+      saleRows.single['product_sync_id'],
+    );
+    expect(movements.single['source_sale_sync_id'], saleSyncId);
+    expect(movements.single[DatabaseService.syncStatusColumn], 'pending');
+    expect(
+      (movements.single[DatabaseService.syncIdColumn] as String).isNotEmpty,
+      isTrue,
+    );
   });
 
   test('A sale cannot reduce stock below zero', () async {
@@ -102,9 +124,12 @@ void main() {
 
     final products = await productRepository.getProducts();
     final sales = await saleRepository.getSales();
+    final db = await databaseService.database;
+    final movements = await db.query(DatabaseService.inventoryMovementsTable);
 
     expect(products.single.stockQuantity, 2);
     expect(sales, isEmpty);
+    expect(movements, isEmpty);
   });
 
   test('A sale with zero quantity is rejected', () async {
@@ -117,30 +142,31 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
 
+    final db = await databaseService.database;
+    final movements = await db.query(DatabaseService.inventoryMovementsTable);
+
     expect(await saleRepository.getSales(), isEmpty);
-    expect(
-      (await productRepository.getProducts()).single.stockQuantity,
-      10,
-    );
+    expect((await productRepository.getProducts()).single.stockQuantity, 10);
+    expect(movements, isEmpty);
   });
 
   test('A sale for a missing product is rejected', () async {
     await expectLater(
-      saleRepository.recordSale(
-        sale: makeSale(productId: 999999),
-      ),
+      saleRepository.recordSale(sale: makeSale(productId: 999999)),
       throwsA(isA<StateError>()),
     );
 
+    final db = await databaseService.database;
+    final movements = await db.query(DatabaseService.inventoryMovementsTable);
+
     expect(await saleRepository.getSales(), isEmpty);
+    expect(movements, isEmpty);
   });
 
   test('A recorded sale has stable synchronization identifiers', () async {
     final productId = await createProduct(stock: 10);
 
-    await saleRepository.recordSale(
-      sale: makeSale(productId: productId),
-    );
+    await saleRepository.recordSale(sale: makeSale(productId: productId));
 
     final db = await databaseService.database;
 
