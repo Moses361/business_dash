@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 class AboutVeroonScreen extends StatelessWidget {
@@ -22,8 +23,6 @@ class AboutVeroonScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           const SizedBox(height: 8),
-
-          // Veroon business avatar
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -37,13 +36,13 @@ class AboutVeroonScreen extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _AvatarBubble(
-                  size: 92,
-                  background: Colors.white.withValues(alpha: 0.16),
-                  borderColor: Colors.white.withValues(alpha: 0.4),
-                  icon: Icons.storefront_rounded,
-                  iconSize: 44,
-                  iconColor: Colors.white,
+                ClipOval(
+                  child: Image.asset(
+                    'assets/veroon logo.png',
+                    width: 92,
+                    height: 92,
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -56,9 +55,9 @@ class AboutVeroonScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Business & Sales Operations',
+                  'Business Management',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -66,10 +65,7 @@ class AboutVeroonScreen extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 18),
-
-          // Developer card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(18),
@@ -77,13 +73,13 @@ class AboutVeroonScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const _AvatarBubble(
-                        size: 58,
-                        background: Color(0xFFE1F1EA),
-                        borderColor: Color(0xFFB9DCCB),
-                        icon: Icons.computer_rounded,
-                        iconSize: 28,
-                        iconColor: primary,
+                      ClipOval(
+                        child: Image.asset(
+                          "assets/developer_icon.png",
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
@@ -136,10 +132,9 @@ class AboutVeroonScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           const Text(
-            'About this app',
+            'About Veroon',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -148,18 +143,99 @@ class AboutVeroonScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Veroon helps small businesses keep track of products, '
-            'sales, expenses, stock levels and business performance '
-            'in one simple place.',
-            style: TextStyle(fontSize: 13, height: 1.5, color: textSecondary),
-          ),
-          const SizedBox(height: 28),
-          Center(
-            child: Text(
-              'Built with care for everyday business.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            'Veroon brings essential business management tools together '
+            'in one place. Manage products, inventory, sales, expenses, '
+            'and business performance with greater clarity, confidence, '
+            'and control.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.7,
+              color: textSecondary,
             ),
           ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE1EAE5)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'A Message from the Developer',
+                  style: TextStyle(
+                    fontSize: 17,
+                    height: 1.4,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'I built Veroon with a genuine passion for technology '
+                  'and a belief that the right tools can make a meaningful '
+                  'difference in how businesses operate and grow.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.7,
+                    color: textSecondary,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'My vision is to make business management simpler, '
+                  'more organized, and more accessible, giving business '
+                  'owners greater confidence in their daily decisions. '
+                  'Every feature is part of that journey, and every '
+                  'improvement is an opportunity to serve businesses better.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.7,
+                    color: textSecondary,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Veroon is more than an application to me. It represents '
+                  'my commitment to creating technology that solves real '
+                  'problems, supports ambition, and grows alongside the '
+                  'people who use it.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.7,
+                    color: textSecondary,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Thank you for believing in Veroon and being part of '
+                  'this journey. Your trust inspires me to keep learning, '
+                  'building, and making Veroon better every day.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.7,
+                    color: textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Text(
+              'Built with passion, purpose, and a vision for better business management.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -233,7 +309,10 @@ class _AboutRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFF66736D), fontSize: 12),
+            style: const TextStyle(
+              color: Color(0xFF66736D),
+              fontSize: 12,
+            ),
           ),
         ),
         Text(

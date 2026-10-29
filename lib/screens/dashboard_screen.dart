@@ -224,11 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   CircleAvatar(
                     radius: 25,
                     backgroundColor: Colors.white24,
-                    child: Icon(
-                      Icons.storefront_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+                    backgroundImage: AssetImage("assets/veroon logo.png"),
                   ),
                   SizedBox(height: 14),
                   Text(
@@ -402,24 +398,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRefresh: _loadDashboardData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWelcome(),
-              const SizedBox(height: 20),
-              if (_errorMessage != null) ...[
-                _buildError(),
-                const SizedBox(height: 16),
-              ],
-              _buildProfitHero(summary),
-              const SizedBox(height: 14),
-              _buildKpiGrid(summary),
-              const SizedBox(height: 24),
-              _buildBusinessOverview(summary),
-              const SizedBox(height: 24),
-              _buildQuickActions(),
-            ],
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcome(),
+                    const SizedBox(height: 20),
+                    if (_errorMessage != null) ...[
+                      _buildError(),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildProfitHero(summary),
+                    const SizedBox(height: 14),
+                    _buildKpiGrid(summary),
+                    const SizedBox(height: 24),
+                    _buildBusinessOverview(summary),
+                    const SizedBox(height: 24),
+                    _buildQuickActions(),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -456,10 +459,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: const Color(0xFFE1F1EA),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Icon(
-            Icons.storefront_rounded,
-            color: Color(0xFF176B4D),
-            size: 24,
+          child: Image.asset(
+            "assets/veroon logo.png",
+            width: 24,
+            height: 24,
+            fit: BoxFit.contain,
           ),
         ),
       ],
@@ -522,13 +526,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            _isLoading ? '...' : _formatAmount(summary.netProfit),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _isLoading ? '...' : _formatAmount(summary.netProfit),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const SizedBox(height: 6),

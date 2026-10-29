@@ -24,6 +24,7 @@ dependencies:
   file_picker: ^13.1.0
   uuid: ^4.6.0
   connectivity_plus: ^7.3.2
+  cloud_functions: ^7.0.1
 
 dev_dependencies:
   flutter_test:
@@ -31,9 +32,18 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
   sqflite_common_ffi: ^2.4.2
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/veroon_app_logo.png
+    - "assets/veroon profile.jpeg"
+    - "assets/veroon logo.png"
+    - "assets/developer_icon.png"
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/veroon logo.png"
+  min_sdk_android: 21

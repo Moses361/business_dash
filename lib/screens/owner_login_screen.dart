@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'staff_join_screen.dart';
+
 class OwnerLoginScreen extends StatefulWidget {
   const OwnerLoginScreen({super.key});
 
@@ -137,6 +139,46 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
     }
   }
 
+  Future<void> _sendPasswordResetEmail() async {
+    final email = _email.text.trim();
+
+    if (email.isEmpty ||
+        !RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
+      setState(() {
+        _error = 'Enter a valid email address first.';
+        _success = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _success = null;
+    });
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      setState(() {
+        _success =
+            'If an account exists for this email, a password reset email has been sent.';
+      });
+    } on FirebaseAuthException {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not send the reset email. Please try again later.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Something went wrong. Please try again.';
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -153,7 +195,16 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.storefront, size: 64),
+                    Center(
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/veroon profile.jpeg',
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Veroon',
@@ -244,6 +295,16 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                         return null;
                       },
                     ),
+                    if (!_creatingAccount) ...[
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed:
+                              _loading ? null : _sendPasswordResetEmail,
+                          child: const Text('Forgot password?'),
+                        ),
+                      ),
+                    ],
                     if (_error != null) ...[
                       const SizedBox(height: 16),
                       Text(
@@ -295,6 +356,18 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                             ? 'Already have an account? Sign in'
                             : 'First time here? Register your business',
                       ),
+                    ),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const StaffJoinScreen(),
+                                ),
+                              );
+                            },
+                      child: const Text("Staff? Join your business"),
                     ),
                   ],
                 ),

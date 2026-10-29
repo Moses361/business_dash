@@ -306,7 +306,12 @@ class _AccessMessage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.storefront, size: 56),
+                  Image.asset(
+                    "assets/veroon logo.png",
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.contain,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     title,
@@ -315,6 +320,12 @@ class _AccessMessage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              const SelectableText(
+                "Owner contact: 0727655605",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
                   const SizedBox(height: 24),
                   OutlinedButton(
                     onPressed: onSignOut,

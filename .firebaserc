@@ -1,6 +1,7 @@
 {
   "projects": {
-    "veroon": "veroon-business-dashboard"
+    "veroon": "veroon-business-dashboard",
+    "default": "veroon-business-dashboard"
   },
   "targets": {},
   "etags": {}
