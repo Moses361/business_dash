@@ -20,6 +20,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _buyingPriceController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
+  final _brandController = TextEditingController();
+  final _strengthController = TextEditingController();
+  final _sizeController = TextEditingController();
+  final _productTypeController = TextEditingController();
 
   final ProductRepository _repository = ProductRepository();
 
@@ -58,6 +62,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _buyingPriceController.text = product.buyingPrice.toString();
       _sellingPriceController.text = product.sellingPrice.toString();
       _stockController.text = product.stockQuantity.toString();
+      _brandController.text = product.brand ?? "";
+      _strengthController.text = product.strength ?? "";
+      _sizeController.text = product.size ?? "";
+      _productTypeController.text = product.productType ?? "";
 
       selectedCategory = product.category;
     }
@@ -72,6 +80,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _buyingPriceController.dispose();
     _sellingPriceController.dispose();
     _stockController.dispose();
+    _brandController.dispose();
+    _strengthController.dispose();
+    _sizeController.dispose();
+    _productTypeController.dispose();
 
     super.dispose();
   }
@@ -101,6 +113,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
         buyingPrice: double.parse(_buyingPriceController.text.trim()),
         sellingPrice: double.parse(_sellingPriceController.text.trim()),
         stockQuantity: int.parse(_stockController.text.trim()),
+        brand: _brandController.text.trim().isEmpty
+            ? null
+            : _brandController.text.trim(),
+        strength: _strengthController.text.trim().isEmpty
+            ? null
+            : _strengthController.text.trim(),
+        size: _sizeController.text.trim().isEmpty
+            ? null
+            : _sizeController.text.trim(),
+        productType: _productTypeController.text.trim().isEmpty
+            ? null
+            : _productTypeController.text.trim(),
       );
 
       if (_isEditing) {

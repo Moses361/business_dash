@@ -22,6 +22,10 @@ class ProductRepository {
       'buying_price': product.buyingPrice,
       'selling_price': product.sellingPrice,
       'stock_quantity': product.stockQuantity,
+      'brand': product.brand,
+      'strength': product.strength,
+      'size': product.size,
+      'product_type': product.productType,
       DatabaseService.syncIdColumn: const Uuid().v4(),
       DatabaseService.syncStatusColumn: 'pending',
       DatabaseService.updatedAtColumn: now,
@@ -50,6 +54,10 @@ class ProductRepository {
         'category': product.category,
         'buying_price': product.buyingPrice,
         'selling_price': product.sellingPrice,
+        'brand': product.brand,
+        'strength': product.strength,
+        'size': product.size,
+        'product_type': product.productType,
         DatabaseService.syncStatusColumn: 'pending',
         DatabaseService.updatedAtColumn: _nowUtc,
       },
@@ -90,6 +98,10 @@ class ProductRepository {
         buyingPrice: (row['buying_price'] as num).toDouble(),
         sellingPrice: (row['selling_price'] as num).toDouble(),
         stockQuantity: row['stock_quantity'] as int,
+        brand: row['brand'] as String?,
+        strength: row['strength'] as String?,
+        size: row['size'] as String?,
+        productType: row['product_type'] as String?,
       );
     }).toList();
   }

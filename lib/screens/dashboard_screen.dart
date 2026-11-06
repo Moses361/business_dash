@@ -5,15 +5,17 @@ import '../repositories/report_repository.dart';
 import '../services/business_sync_service.dart';
 import 'about_veroon_screen.dart';
 import 'cloud_backup_screen.dart';
+import 'checkout_screen.dart';
 import 'expenses_screen.dart';
 import 'products_screen.dart';
-import 'record_sale_screen.dart';
 import 'reports_screen.dart';
 import 'sales_screen.dart';
 import 'staff_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final BusinessSyncService? syncService;
+
+  const DashboardScreen({super.key, this.syncService});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -22,7 +24,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final ReportRepository _reportRepository = ReportRepository();
-  final BusinessSyncService _syncService = BusinessSyncService();
+  late final BusinessSyncService _syncService =
+      widget.syncService ?? BusinessSyncService();
 
   int _productCount = 0;
   int _lowStockCount = 0;
@@ -104,10 +107,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _openRecordSale(BuildContext context) async {
+  Future<void> _openCheckout(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
+      MaterialPageRoute(builder: (_) => const CheckoutScreen()),
     );
     if (!mounted) return;
     await _loadDashboardData();
@@ -224,7 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   CircleAvatar(
                     radius: 25,
                     backgroundColor: Colors.white24,
-                    backgroundImage: AssetImage("assets/veroon logo.png"),
+                    backgroundImage: AssetImage("assets/veroon profile.jpeg"),
                   ),
                   SizedBox(height: 14),
                   Text(
@@ -296,10 +299,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   _sidebarItem(
                     icon: Icons.add_shopping_cart_rounded,
-                    title: 'Record a Sale',
+                    title: 'New sale',
                     onTap: () {
                       Navigator.pop(context);
-                      _openRecordSale(context);
+                      _openCheckout(context);
                     },
                   ),
                   _sidebarItem(
@@ -371,26 +374,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
-          IconButton(
+          TextButton.icon(
             onPressed: _isSyncing ? null : _syncNow,
             icon: _isSyncing
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.sync),
-            tooltip: 'Sync across devices',
+                : const Icon(Icons.sync, size: 19),
+            label: const Text("Sync products"),
           ),
           IconButton(
             onPressed: () => _openAbout(context),
             icon: const Icon(Icons.info_outline_rounded),
             tooltip: 'About Veroon',
           ),
-          IconButton(
+          TextButton.icon(
             onPressed: _isLoading ? null : _loadDashboardData,
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh dashboard',
+            icon: const Icon(Icons.refresh_rounded, size: 19),
+            label: const Text("Refresh app"),
           ),
         ],
       ),
@@ -407,7 +410,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildWelcome(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     if (_errorMessage != null) ...[
                       _buildError(),
                       const SizedBox(height: 16),
@@ -416,9 +419,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 14),
                     _buildKpiGrid(summary),
                     const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: FilledButton.icon(
+                        onPressed: () => _openCheckout(context),
+                        icon: const Icon(
+                          Icons.add_shopping_cart_rounded,
+                          size: 22,
+                        ),
+                        label: const Text(
+                          "New sale",
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF176B4D),
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     _buildBusinessOverview(summary),
                     const SizedBox(height: 24),
-                    _buildQuickActions(),
                   ],
                 ),
               ),
@@ -665,58 +694,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 subtitle: 'today',
                 icon: Icons.shopping_bag_rounded,
                 onTap: () => _openSales(context),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick actions',
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF17221D),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton.icon(
-            onPressed: () => _openRecordSale(context),
-            icon: const Icon(Icons.point_of_sale_rounded),
-            label: const Text('Record Sale'),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _openProducts(context),
-                icon: const Icon(Icons.inventory_2_outlined),
-                label: const Text('Products'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _openExpenses(context),
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: const Text('Expenses'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                ),
               ),
             ),
           ],

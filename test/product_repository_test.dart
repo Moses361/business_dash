@@ -45,6 +45,10 @@ void main() {
         buyingPrice: 1500,
         sellingPrice: 2500,
         stockQuantity: 10,
+        brand: 'Amoxyl',
+        strength: '500mg',
+        size: '10 tablets',
+        productType: 'Capsules',
       ),
     );
 
@@ -55,6 +59,10 @@ void main() {
     expect(products, hasLength(1));
     expect(products.single.name, 'Test Brake Pads');
     expect(products.single.stockQuantity, 10);
+    expect(products.single.brand, 'Amoxyl');
+    expect(products.single.strength, '500mg');
+    expect(products.single.size, '10 tablets');
+    expect(products.single.productType, 'Capsules');
   });
 
   test('Updating product details does not change stock', () async {

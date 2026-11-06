@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class AboutVeroonScreen extends StatelessWidget {
@@ -126,7 +125,7 @@ class AboutVeroonScreen extends StatelessWidget {
                   const _AboutRow(
                     icon: Icons.verified_outlined,
                     label: 'Version',
-                    value: '1.0.0',
+                    value: '4.0.0',
                   ),
                 ],
               ),
@@ -147,11 +146,7 @@ class AboutVeroonScreen extends StatelessWidget {
             'in one place. Manage products, inventory, sales, expenses, '
             'and business performance with greater clarity, confidence, '
             'and control.',
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.7,
-              color: textSecondary,
-            ),
+            style: TextStyle(fontSize: 14, height: 1.7, color: textSecondary),
           ),
           const SizedBox(height: 24),
           Container(
@@ -309,10 +304,7 @@ class _AboutRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF66736D),
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Color(0xFF66736D), fontSize: 12),
           ),
         ),
         Text(

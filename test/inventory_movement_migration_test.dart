@@ -277,4 +277,48 @@ void main() {
     expect(products.single['name'], 'Existing Item');
     expect(products.single['stock_quantity'], 5);
   });
+
+  test('Export and restore preserve sales return records', () async {
+    final db = await databaseService.database;
+    final product = await insertProduct(db, name: 'Returned Item', stock: 8);
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await db.insert('sales_returns', {
+      'sync_id': 'return-test-1',
+      'sale_sync_id': 'sale-test-1',
+      'product_id': product['id'],
+      'product_sync_id': product['sync_id'],
+      'product_name': 'Returned Item',
+      'quantity': 2,
+      'restocked_quantity': 2,
+      'refund_amount': 40.0,
+      'buying_price': 10.0,
+      'selling_price': 20.0,
+      'reason': 'Customer returned item',
+      'created_at': now,
+      'sync_status': 'synced',
+      'updated_at': now,
+      'deleted_at': null,
+    });
+
+    final backupPath = await databaseService.exportDatabase();
+    final backupFile = File(backupPath);
+    final backup =
+        jsonDecode(await backupFile.readAsString()) as Map<String, dynamic>;
+
+    expect(backup['sales_returns'], hasLength(1));
+    expect(backup['counts']['sales_returns'], 1);
+
+    await db.delete('sales_returns');
+
+    final result = await databaseService.restoreDatabase(backupPath);
+    final restoredReturns = await db.query('sales_returns');
+
+    expect(restoredReturns, hasLength(1));
+    expect(restoredReturns.single['sync_id'], 'return-test-1');
+    expect(restoredReturns.single['quantity'], 2);
+    expect(restoredReturns.single['restocked_quantity'], 2);
+    expect(restoredReturns.single['refund_amount'], 40.0);
+    expect(result['sales_returns'], 1);
+  });
 }

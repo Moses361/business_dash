@@ -33,30 +33,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _deleteProduct() async {
-    final bool? shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Delete Product'),
-          content: Text('Are you sure you want to delete "${_product.name}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: FilledButton.styleFrom(backgroundColor: _danger),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldDelete != true || !mounted) return;
-
-    // ProductsScreen handles deletion and its undo action.
+    // ProductsScreen handles confirmation, deletion, and Undo.
     Navigator.pop(context, _product);
   }
 
@@ -118,6 +95,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   buyingPrice: _product.buyingPrice,
                   sellingPrice: _product.sellingPrice,
                   stockQuantity: updatedStock,
+                  brand: _product.brand,
+                  strength: _product.strength,
+                  size: _product.size,
+                  productType: _product.productType,
                 );
                 _savingAdjustment = false;
               });
@@ -202,18 +183,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           'Product Details',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: [
-          IconButton(
-            onPressed: _editProduct,
-            tooltip: 'Edit product',
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
-            onPressed: _deleteProduct,
-            tooltip: 'Delete product',
-            icon: const Icon(Icons.delete_outline_rounded),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
@@ -571,15 +540,54 @@ class _StockAdjustmentDialogState extends State<_StockAdjustmentDialog> {
 
             const SizedBox(height: 16),
 
-            TextField(
-              controller: _quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Quantity (whole units)',
-                hintText: 'e.g. 5',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (_) => setState(() {}),
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: _isSaving || _quantity <= 1
+                      ? null
+                      : () {
+                          setState(() {
+                            _quantityController.text = "${_quantity - 1}";
+                          });
+                        },
+                  icon: const Icon(Icons.remove),
+                  tooltip: "Decrease quantity",
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _quantityController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: "Quantity (whole units)",
+                      hintText: "Enter quantity",
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 18,
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: _isSaving
+                      ? null
+                      : () {
+                          setState(() {
+                            _quantityController.text = "${_quantity + 1}";
+                          });
+                        },
+                  icon: const Icon(Icons.add),
+                  tooltip: "Increase quantity",
+                ),
+              ],
             ),
 
             const SizedBox(height: 14),

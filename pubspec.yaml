@@ -2,7 +2,7 @@ name: business_dash
 description: "Veroon App - Motorcycle Spare Parts Shop"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 4.0.0+4
 
 environment:
   sdk: ^3.13.0

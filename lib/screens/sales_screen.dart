@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/sale.dart';
 import '../repositories/sale_repository.dart';
-import 'record_sale_screen.dart';
+import 'checkout_screen.dart';
 import 'reports_screen.dart';
 import 'sale_details_screen.dart';
 
@@ -14,6 +14,8 @@ const Color _salesTextSecondary = Color(0xFF68756D);
 const Color _salesBorder = Color(0xFFE1E9E4);
 const Color _salesDanger = Color(0xFFD64545);
 
+enum _SalesPeriod { all, today, thisMonth }
+
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
 
@@ -23,6 +25,7 @@ class SalesScreen extends StatefulWidget {
 
 class _SalesScreenState extends State<SalesScreen> {
   final SaleRepository _repository = SaleRepository();
+  final TextEditingController _searchController = TextEditingController();
 
   List<Sale> _sales = [];
 
@@ -33,11 +36,40 @@ class _SalesScreenState extends State<SalesScreen> {
 
   bool _isLoading = true;
   String? _errorMessage;
+  String _searchQuery = '';
+  _SalesPeriod _selectedPeriod = _SalesPeriod.all;
+
+  List<Sale> get _visibleSales {
+    final now = DateTime.now();
+    final query = _searchQuery.trim().toLowerCase();
+
+    return _sales.where((sale) {
+      final date = sale.createdAt.toLocal();
+
+      final matchesSearch =
+          query.isEmpty || sale.productName.toLowerCase().contains(query);
+
+      final matchesPeriod = switch (_selectedPeriod) {
+        _SalesPeriod.all => true,
+        _SalesPeriod.today => DateUtils.isSameDay(date, now),
+        _SalesPeriod.thisMonth =>
+          date.year == now.year && date.month == now.month,
+      };
+
+      return matchesSearch && matchesPeriod;
+    }).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadSales();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSales() async {
@@ -79,14 +111,13 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
-  Future<void> _openRecordSale() async {
+  Future<void> _openNewSale() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RecordSaleScreen()),
+      MaterialPageRoute(builder: (_) => const CheckoutScreen()),
     );
 
     if (!mounted) return;
-
     await _loadSales();
   }
 
@@ -104,7 +135,6 @@ class _SalesScreenState extends State<SalesScreen> {
     );
 
     if (!mounted) return;
-
     await _loadSales();
   }
 
@@ -114,15 +144,11 @@ class _SalesScreenState extends State<SalesScreen> {
 
   String _formatDate(DateTime date) {
     final localDate = date.toLocal();
-
     final day = localDate.day.toString().padLeft(2, '0');
     final month = localDate.month.toString().padLeft(2, '0');
     final year = localDate.year.toString();
-
     final hour = localDate.hour % 12 == 0 ? 12 : localDate.hour % 12;
-
     final minute = localDate.minute.toString().padLeft(2, '0');
-
     final period = localDate.hour >= 12 ? 'PM' : 'AM';
 
     return '$day/$month/$year $hour:$minute $period';
@@ -143,13 +169,14 @@ class _SalesScreenState extends State<SalesScreen> {
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh sales',
           ),
+          const SizedBox(width: 4),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openRecordSale,
+        onPressed: _openNewSale,
         icon: const Icon(Icons.point_of_sale_rounded),
         label: const Text(
-          'Record Sale',
+          'New sale',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -173,7 +200,7 @@ class _SalesScreenState extends State<SalesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.error_outline_rounded,
                     size: 52,
                     color: _salesDanger,
@@ -206,103 +233,97 @@ class _SalesScreenState extends State<SalesScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
         _buildTodayCard(),
-
         const SizedBox(height: 14),
-
         _buildStats(),
-
-        const SizedBox(height: 24),
-
+        const SizedBox(height: 26),
         _buildSectionHeader(),
-
+        const SizedBox(height: 14),
+        _buildSearchField(),
         const SizedBox(height: 12),
-
-        if (_sales.isEmpty)
+        _buildPeriodFilters(),
+        const SizedBox(height: 14),
+        if (_visibleSales.isEmpty)
           _buildEmptyState()
         else
-          ..._sales.map((sale) => _buildSaleCard(sale)),
+          ..._visibleSales.map(_buildSaleCard),
       ],
     );
   }
 
   Widget _buildTodayCard() {
-    return _TappableContainer(
-      onTap: () {},
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF176B4D), Color(0xFF0F513A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF176B4D), Color(0xFF0F513A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: _salesPrimary.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: _salesPrimary.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    "TODAY'S SALES",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                    ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  "TODAY'S SALES",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.point_of_sale_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              _formatAmount(_todaySales),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.trending_up_rounded,
-                  color: Colors.white70,
-                  size: 17,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  "Today's profit "
-                  '${_formatAmount(_todayProfit)}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                child: const Icon(
+                  Icons.point_of_sale_rounded,
+                  color: Colors.white,
+                  size: 20,
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _formatAmount(_todaySales),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                Icons.trending_up_rounded,
+                color: Colors.white70,
+                size: 17,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                "Today's profit ${_formatAmount(_todayProfit)}",
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -315,7 +336,6 @@ class _SalesScreenState extends State<SalesScreen> {
             title: 'Total Sales',
             value: _formatAmount(_totalSales),
             icon: Icons.bar_chart_rounded,
-            onTap: () {},
           ),
         ),
         const SizedBox(width: 10),
@@ -339,7 +359,7 @@ class _SalesScreenState extends State<SalesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Recent sales',
+                'Sales history',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -348,7 +368,7 @@ class _SalesScreenState extends State<SalesScreen> {
               ),
               SizedBox(height: 3),
               Text(
-                'Tap a sale to view its details.',
+                'Search transactions and open a sale for details.',
                 style: TextStyle(fontSize: 11, color: _salesTextSecondary),
               ),
             ],
@@ -362,7 +382,7 @@ class _SalesScreenState extends State<SalesScreen> {
             border: Border.all(color: _salesBorder),
           ),
           child: Text(
-            '${_sales.length}',
+            '${_visibleSales.length} / ${_sales.length}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -374,10 +394,82 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  Widget _buildSaleCard(Sale sale) {
-    final double totalProfit = sale.grossProfit;
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      onChanged: (value) => setState(() => _searchQuery = value),
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'Search by product name',
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: _searchQuery.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear search',
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
+                icon: const Icon(Icons.close_rounded),
+              ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: _salesBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: _salesBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: _salesPrimary, width: 1.5),
+        ),
+      ),
+    );
+  }
 
-    final bool positive = totalProfit >= 0;
+  Widget _buildPeriodFilters() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _periodChip('All sales', _SalesPeriod.all),
+          const SizedBox(width: 8),
+          _periodChip('Today', _SalesPeriod.today),
+          const SizedBox(width: 8),
+          _periodChip('This month', _SalesPeriod.thisMonth),
+        ],
+      ),
+    );
+  }
+
+  Widget _periodChip(String label, _SalesPeriod period) {
+    final selected = _selectedPeriod == period;
+
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _selectedPeriod = period),
+      showCheckmark: false,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : _salesTextSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+      selectedColor: _salesPrimary,
+      backgroundColor: Colors.white,
+      side: BorderSide(color: selected ? _salesPrimary : _salesBorder),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    );
+  }
+
+  Widget _buildSaleCard(Sale sale) {
+    final totalProfit = sale.grossProfit;
+    final positive = totalProfit >= 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -401,9 +493,7 @@ class _SalesScreenState extends State<SalesScreen> {
                   size: 22,
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,8 +510,7 @@ class _SalesScreenState extends State<SalesScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${sale.quantity} units • '
-                      '${_formatDate(sale.createdAt)}',
+                      '${sale.quantity} units • ${_formatDate(sale.createdAt)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -432,19 +521,22 @@ class _SalesScreenState extends State<SalesScreen> {
                     const SizedBox(height: 7),
                     Row(
                       children: [
-                        Text(
+                        const Text(
                           'Profit ',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             color: _salesTextSecondary,
                           ),
                         ),
-                        Text(
-                          _formatAmount(totalProfit),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: positive ? _salesPrimary : _salesDanger,
+                        Flexible(
+                          child: Text(
+                            _formatAmount(totalProfit),
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: positive ? _salesPrimary : _salesDanger,
+                            ),
                           ),
                         ),
                       ],
@@ -452,9 +544,7 @@ class _SalesScreenState extends State<SalesScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(width: 10),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -482,6 +572,9 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   Widget _buildEmptyState() {
+    final hasFilters =
+        _searchQuery.trim().isNotEmpty || _selectedPeriod != _SalesPeriod.all;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(30),
@@ -493,45 +586,43 @@ class _SalesScreenState extends State<SalesScreen> {
                 color: _salesSoftGreen,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Icon(
-                Icons.receipt_long_outlined,
+              child: Icon(
+                hasFilters
+                    ? Icons.search_off_rounded
+                    : Icons.receipt_long_outlined,
                 size: 34,
                 color: _salesPrimary,
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No sales recorded yet',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            Text(
+              hasFilters ? 'No matching sales' : 'No sales recorded yet',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 7),
             Text(
-              'Record your first sale and it will appear here.',
+              hasFilters
+                  ? 'Try another product name or choose a different date filter.'
+                  : 'Record your first sale and it will appear here.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
+            if (hasFilters) ...[
+              const SizedBox(height: 14),
+              TextButton.icon(
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _searchQuery = '';
+                    _selectedPeriod = _SalesPeriod.all;
+                  });
+                },
+                icon: const Icon(Icons.filter_alt_off_rounded),
+                label: const Text('Clear filters'),
+              ),
+            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TappableContainer extends StatelessWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _TappableContainer({required this.child, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: child,
       ),
     );
   }
@@ -541,70 +632,70 @@ class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final content = Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _salesSoftGreen,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: _salesPrimary, size: 21),
+          ),
+          const SizedBox(height: 11),
+          Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _salesSoftGreen,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(icon, color: _salesPrimary, size: 21),
-              ),
-              const SizedBox(height: 11),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        color: _salesTextSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _salesTextSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 17,
-                    color: Color(0xFF9AA59F),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: _salesTextPrimary,
                 ),
               ),
+              if (onTap != null)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 17,
+                  color: Color(0xFF9AA59F),
+                ),
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: _salesTextPrimary,
+            ),
+          ),
+        ],
       ),
+    );
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: onTap == null ? content : InkWell(onTap: onTap, child: content),
     );
   }
 }

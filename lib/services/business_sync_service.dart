@@ -309,6 +309,10 @@ class BusinessSyncService {
         'buying_price': (cloud['buying_price'] as num).toDouble(),
         'selling_price': (cloud['selling_price'] as num).toDouble(),
         'stock_quantity': (cloud['stock_quantity'] as num).toInt(),
+        'brand': cloud['brand'] is String ? cloud['brand'] : null,
+        'strength': cloud['strength'] is String ? cloud['strength'] : null,
+        'size': cloud['size'] is String ? cloud['size'] : null,
+        'product_type': cloud['product_type'] is String ? cloud['product_type'] : null,
       });
     } else if (collectionName == DatabaseService.expensesTable) {
       if (cloud['title'] is! String ||

@@ -9,7 +9,7 @@ import 'package:uuid/uuid.dart';
 
 class DatabaseService {
   static const String _databaseName = 'veroon.db';
-  static const int _databaseVersion = 10;
+  static const int _databaseVersion = 14;
 
   final String? testDatabasePath;
   final String? testBackupDirectory;
@@ -20,6 +20,9 @@ class DatabaseService {
   static const String salesTable = 'sales';
   static const String expensesTable = 'expenses';
   static const String inventoryMovementsTable = 'inventory_movements';
+  static const String salesReturnsTable = 'sales_returns';
+  static const String saleOrdersTable = 'sale_orders';
+  static const String salePaymentsTable = 'sale_payments';
 
   // Metadata reserved for future offline-to-cloud synchronization.
   static const String syncIdColumn = 'sync_id';
@@ -72,7 +75,11 @@ class DatabaseService {
         category TEXT NOT NULL,
         buying_price REAL NOT NULL,
         selling_price REAL NOT NULL,
-        stock_quantity INTEGER NOT NULL
+        stock_quantity INTEGER NOT NULL,
+        brand TEXT,
+        strength TEXT,
+        size TEXT,
+        product_type TEXT
       )
     ''');
 
@@ -81,6 +88,10 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         product_id INTEGER NOT NULL,
         product_sync_id TEXT,
+        order_sync_id TEXT,
+        status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'cancelled')),
+        cancellation_reason TEXT,
+        cancelled_at TEXT,
         product_name TEXT NOT NULL,
         quantity INTEGER NOT NULL,
         buying_price REAL NOT NULL,
@@ -104,6 +115,8 @@ class DatabaseService {
     await _ensureSyncMetadataSchema(db);
     await _createInventoryMovementsTable(db);
     await _createOpeningBalanceMovements(db);
+    await _createSalesReturnsTable(db);
+    await _createSaleOrdersAndPaymentsTables(db);
   }
 
   Future<void> _upgradeDatabase(
@@ -155,6 +168,124 @@ class DatabaseService {
       await _createInventoryMovementsTable(db);
       await _createOpeningBalanceMovements(db);
     }
+
+    if (oldVersion < 11) {
+      await _createSalesReturnsTable(db);
+    }
+
+    if (oldVersion < 12) {
+      try {
+        await db.execute('ALTER TABLE sales ADD COLUMN order_sync_id TEXT');
+      } catch (_) {}
+      await _createSaleOrdersAndPaymentsTables(db);
+    }
+
+    if (oldVersion < 13) {
+      await db.execute(
+        "ALTER TABLE sales ADD COLUMN status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'cancelled'))",
+      );
+      await db.execute('ALTER TABLE sales ADD COLUMN cancellation_reason TEXT');
+      await db.execute('ALTER TABLE sales ADD COLUMN cancelled_at TEXT');
+    }
+
+    if (oldVersion < 14) {
+      await db.execute('ALTER TABLE products ADD COLUMN brand TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN strength TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN size TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN product_type TEXT');
+    }
+  }
+
+  Future<void> _createSaleOrdersAndPaymentsTables(DatabaseExecutor db) async {
+    await db.execute("""
+      CREATE TABLE IF NOT EXISTS sale_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_id TEXT NOT NULL UNIQUE,
+        total_amount REAL NOT NULL CHECK (total_amount >= 0),
+        status TEXT NOT NULL DEFAULT 'completed'
+          CHECK (status IN ('completed', 'cancelled')),
+        cancellation_reason TEXT,
+        cancelled_at TEXT,
+        created_at TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'pending',
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+      )
+    """);
+
+    await db.execute("""
+      CREATE TABLE IF NOT EXISTS sale_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_id TEXT NOT NULL UNIQUE,
+        order_sync_id TEXT NOT NULL,
+        payment_method TEXT NOT NULL
+          CHECK (payment_method IN ('cash', 'mpesa')),
+        amount REAL NOT NULL CHECK (amount > 0),
+        reference TEXT,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'pending',
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+      )
+    """);
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sale_orders_created_at ON sale_orders(created_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sale_orders_status ON sale_orders(status)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sale_orders_sync_status ON sale_orders(sync_status)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sale_payments_order_sync_id ON sale_payments(order_sync_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sale_payments_created_at ON sale_payments(created_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sale_payments_sync_status ON sale_payments(sync_status)',
+    );
+  }
+
+  Future<void> _createSalesReturnsTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sales_returns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_id TEXT NOT NULL UNIQUE,
+        sale_sync_id TEXT NOT NULL,
+        product_id INTEGER NOT NULL,
+        product_sync_id TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL CHECK (quantity > 0),
+        restocked_quantity INTEGER NOT NULL DEFAULT 0 CHECK (restocked_quantity >= 0 AND restocked_quantity <= quantity),
+        refund_amount REAL NOT NULL CHECK (refund_amount >= 0),
+        buying_price REAL NOT NULL CHECK (buying_price >= 0),
+        selling_price REAL NOT NULL CHECK (selling_price >= 0),
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'pending',
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sales_returns_sale
+      ON sales_returns(sale_sync_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sales_returns_created_at
+      ON sales_returns(created_at)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sales_returns_sync_status
+      ON sales_returns(sync_status)
+    ''');
   }
 
   Future<void> _createInventoryMovementsTable(DatabaseExecutor db) async {
@@ -368,6 +499,18 @@ class DatabaseService {
         orderBy: 'id ASC',
       );
 
+      final salesReturns = await txn.query(
+        salesReturnsTable,
+        orderBy: 'id ASC',
+      );
+
+      final saleOrders = await txn.query(saleOrdersTable, orderBy: 'id ASC');
+
+      final salePayments = await txn.query(
+        salePaymentsTable,
+        orderBy: 'id ASC',
+      );
+
       return <String, dynamic>{
         'format': 'veroon_json_backup',
         'formatVersion': 1,
@@ -378,11 +521,17 @@ class DatabaseService {
           'sales': sales.length,
           'expenses': expenses.length,
           'inventory_movements': inventoryMovements.length,
+          'sales_returns': salesReturns.length,
+          'sale_orders': saleOrders.length,
+          'sale_payments': salePayments.length,
         },
         'products': products,
         'sales': sales,
         'expenses': expenses,
         'inventory_movements': inventoryMovements,
+        'sales_returns': salesReturns,
+        'sale_orders': saleOrders,
+        'sale_payments': salePayments,
       };
     });
 
@@ -436,10 +585,10 @@ class DatabaseService {
     if (backup['format'] != 'veroon_json_backup' ||
         backup['formatVersion'] != 1 ||
         backupVersion is! int ||
-        ![7, 8, 9, 10].contains(backupVersion)) {
+        ![7, 8, 9, 10, 11, 12, 13, 14].contains(backupVersion)) {
       throw const FormatException(
         'Unsupported backup format or database version. '
-        'Supported database versions are 7, 8, 9, and 10.',
+        'Supported database versions are 7, 8, 9, 10, 11, 12, 13, and 14.',
       );
     }
 
@@ -470,6 +619,154 @@ class DatabaseService {
       'category',
       'created_at',
     ]);
+
+    final hasSalesReturns = backup.containsKey('sales_returns');
+    final salesReturns = hasSalesReturns
+        ? _validatedRecords(backup['sales_returns'], 'sales_returns', [
+            'id',
+            'sync_id',
+            'sale_sync_id',
+            'product_id',
+            'product_sync_id',
+            'product_name',
+            'quantity',
+            'restocked_quantity',
+            'refund_amount',
+            'buying_price',
+            'selling_price',
+            'reason',
+            'created_at',
+            'sync_status',
+            'updated_at',
+          ])
+        : <Map<String, Object?>>[];
+
+    for (final returned in salesReturns) {
+      final quantity = returned['quantity'];
+      final restockedQuantity = returned['restocked_quantity'];
+      final refundAmount = returned['refund_amount'];
+      final buyingPrice = returned['buying_price'];
+      final sellingPrice = returned['selling_price'];
+
+      if (returned['sync_id'] is! String ||
+          (returned['sync_id'] as String).trim().isEmpty ||
+          returned['sale_sync_id'] is! String ||
+          (returned['sale_sync_id'] as String).trim().isEmpty ||
+          returned['product_sync_id'] is! String ||
+          (returned['product_sync_id'] as String).trim().isEmpty ||
+          returned['product_name'] is! String ||
+          quantity is! num ||
+          quantity.toInt() != quantity ||
+          quantity <= 0 ||
+          restockedQuantity is! num ||
+          restockedQuantity.toInt() != restockedQuantity ||
+          restockedQuantity < 0 ||
+          restockedQuantity > quantity ||
+          refundAmount is! num ||
+          !refundAmount.isFinite ||
+          refundAmount < 0 ||
+          buyingPrice is! num ||
+          !buyingPrice.isFinite ||
+          buyingPrice < 0 ||
+          sellingPrice is! num ||
+          !sellingPrice.isFinite ||
+          sellingPrice < 0 ||
+          returned['reason'] is! String ||
+          (returned['reason'] as String).trim().isEmpty ||
+          returned['created_at'] is! String ||
+          returned['sync_status'] is! String ||
+          returned['updated_at'] is! String) {
+        throw const FormatException('Invalid sales return record in backup.');
+      }
+
+      final deletedAt = returned['deleted_at'];
+      if (deletedAt != null && deletedAt is! String) {
+        throw const FormatException(
+          'Invalid optional field in sales return record.',
+        );
+      }
+    }
+
+    final hasSaleOrders = backup.containsKey('sale_orders');
+    final saleOrders = hasSaleOrders
+        ? _validatedRecords(backup['sale_orders'], 'sale_orders', [
+            'id',
+            'sync_id',
+            'total_amount',
+            'status',
+            'created_at',
+            'sync_status',
+            'updated_at',
+          ])
+        : <Map<String, Object?>>[];
+
+    for (final order in saleOrders) {
+      final totalAmount = order['total_amount'];
+      if (order['sync_id'] is! String ||
+          (order['sync_id'] as String).trim().isEmpty ||
+          totalAmount is! num ||
+          !totalAmount.isFinite ||
+          totalAmount < 0 ||
+          !['completed', 'cancelled'].contains(order['status']) ||
+          order['created_at'] is! String ||
+          order['sync_status'] is! String ||
+          order['updated_at'] is! String) {
+        throw const FormatException('Invalid sale order record in backup.');
+      }
+
+      for (final field in [
+        'cancellation_reason',
+        'cancelled_at',
+        'deleted_at',
+      ]) {
+        final value = order[field];
+        if (value != null && value is! String) {
+          throw const FormatException(
+            'Invalid optional field in sale order record.',
+          );
+        }
+      }
+    }
+
+    final hasSalePayments = backup.containsKey('sale_payments');
+    final salePayments = hasSalePayments
+        ? _validatedRecords(backup['sale_payments'], 'sale_payments', [
+            'id',
+            'sync_id',
+            'order_sync_id',
+            'payment_method',
+            'amount',
+            'created_at',
+            'sync_status',
+            'updated_at',
+          ])
+        : <Map<String, Object?>>[];
+
+    for (final payment in salePayments) {
+      final amount = payment['amount'];
+      if (payment['sync_id'] is! String ||
+          (payment['sync_id'] as String).trim().isEmpty ||
+          payment['order_sync_id'] is! String ||
+          (payment['order_sync_id'] as String).trim().isEmpty ||
+          !['cash', 'mpesa'].contains(payment['payment_method']) ||
+          amount is! num ||
+          !amount.isFinite ||
+          amount <= 0 ||
+          payment['created_at'] is! String ||
+          payment['sync_status'] is! String ||
+          payment['updated_at'] is! String) {
+        throw const FormatException('Invalid sale payment record in backup.');
+      }
+
+      for (final field in ['reference', 'note', 'deleted_at']) {
+        final value = payment[field];
+        if (value != null && value is! String) {
+          throw const FormatException(
+            'Invalid optional field in sale payment record.',
+          );
+        }
+      }
+    }
 
     final hasMovementRecords = backup.containsKey('inventory_movements');
 
@@ -528,6 +825,9 @@ class DatabaseService {
 
     await db.transaction((txn) async {
       await txn.delete(inventoryMovementsTable);
+      await txn.delete(salePaymentsTable);
+      await txn.delete(saleOrdersTable);
+      await txn.delete(salesReturnsTable);
       await txn.delete(salesTable);
       await txn.delete(expensesTable);
       await txn.delete(productsTable);
@@ -535,6 +835,14 @@ class DatabaseService {
       for (final record in products) {
         await txn.insert(
           productsTable,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
+      for (final record in saleOrders) {
+        await txn.insert(
+          saleOrdersTable,
           record,
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
@@ -548,9 +856,25 @@ class DatabaseService {
         );
       }
 
+      for (final record in salePayments) {
+        await txn.insert(
+          salePaymentsTable,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
       for (final record in expenses) {
         await txn.insert(
           expensesTable,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
+      for (final record in salesReturns) {
+        await txn.insert(
+          salesReturnsTable,
           record,
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
@@ -583,11 +907,20 @@ class DatabaseService {
         ) ??
         0;
 
+    final returnCount =
+        Sqflite.firstIntValue(
+          await restoredDb.rawQuery('SELECT COUNT(*) FROM $salesReturnsTable'),
+        ) ??
+        0;
+
     return {
       'products': products.length,
       'sales': sales.length,
       'expenses': expenses.length,
       'inventory_movements': movementCount,
+      'sales_returns': returnCount,
+      'sale_orders': saleOrders.length,
+      'sale_payments': salePayments.length,
       'safetyBackupPath': safetyBackupPath,
     };
   }

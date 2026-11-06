@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../database/database_service.dart';
 import '../models/sale.dart';
+import '../models/checkout_models.dart';
 
 class SaleRepository {
   final DatabaseService _databaseService;
@@ -93,6 +94,218 @@ class SaleRepository {
       });
 
       return saleId;
+    });
+  }
+
+  Future<CheckoutResult> checkout({
+    required List<CheckoutCartItem> items,
+    List<CheckoutPaymentInput> payments = const [],
+  }) async {
+    if (items.isEmpty) {
+      throw ArgumentError('The cart cannot be empty');
+    }
+
+    final seenProductIds = <int>{};
+    for (final item in items) {
+      if (item.productId <= 0 || item.quantity <= 0) {
+        throw ArgumentError('Each product must have a valid ID and quantity');
+      }
+      if (!seenProductIds.add(item.productId)) {
+        throw ArgumentError('A product appears more than once in the cart');
+      }
+    }
+
+    int toCents(double amount) {
+      if (!amount.isFinite || amount < 0) {
+        throw ArgumentError('Amounts must be finite and non-negative');
+      }
+      return (amount * 100).round();
+    }
+
+    for (final payment in payments) {
+      final cents = toCents(payment.amount);
+      if (cents <= 0) {
+        throw ArgumentError('Payment amounts must be greater than zero');
+      }
+    }
+
+    final paidCents = payments.fold<int>(
+      0,
+      (sum, payment) => sum + toCents(payment.amount),
+    );
+
+    final Database database = await _databaseService.database;
+
+    return database.transaction<CheckoutResult>((transaction) async {
+      final now = _nowUtc;
+      const uuid = Uuid();
+      final orderSyncId = uuid.v4();
+
+      final cartLines = <Map<String, Object?>>[];
+      var totalCents = 0;
+
+      for (final item in items) {
+        final rows = await transaction.query(
+          DatabaseService.productsTable,
+          columns: [
+            'id',
+            'name',
+            'buying_price',
+            'selling_price',
+            'stock_quantity',
+            DatabaseService.syncIdColumn,
+          ],
+          where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+          whereArgs: [item.productId],
+          limit: 1,
+        );
+
+        if (rows.isEmpty) {
+          throw StateError('Product ${item.productId} was not found');
+        }
+
+        final product = rows.first;
+        final productSyncId = product[DatabaseService.syncIdColumn] as String?;
+        if (productSyncId == null || productSyncId.isEmpty) {
+          throw StateError('Product synchronization ID is missing');
+        }
+
+        final buyingPrice = (product['buying_price'] as num).toDouble();
+        final sellingPrice = (product['selling_price'] as num).toDouble();
+        final stockQuantity = (product['stock_quantity'] as num).toInt();
+
+        if (!buyingPrice.isFinite ||
+            !sellingPrice.isFinite ||
+            buyingPrice < 0 ||
+            sellingPrice < 0) {
+          throw StateError('Product prices are invalid');
+        }
+        if (stockQuantity < item.quantity) {
+          throw StateError(
+            'Insufficient stock for ${product['name']}. Available: $stockQuantity',
+          );
+        }
+
+        final unitCents = toCents(sellingPrice);
+        final lineCents = unitCents * item.quantity;
+        totalCents += lineCents;
+
+        cartLines.add({
+          'product_id': item.productId,
+          'product_sync_id': productSyncId,
+          'product_name': product['name'] as String,
+          'quantity': item.quantity,
+          'buying_price': buyingPrice,
+          'selling_price': sellingPrice,
+          'total_amount': lineCents / 100.0,
+          'line_cents': lineCents,
+        });
+      }
+
+      if (paidCents > totalCents) {
+        throw ArgumentError('Payments cannot exceed the order total');
+      }
+
+      final orderId = await transaction.insert(
+        DatabaseService.saleOrdersTable,
+        {
+          DatabaseService.syncIdColumn: orderSyncId,
+          'total_amount': totalCents / 100.0,
+          'status': 'completed',
+          'created_at': now,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        },
+      );
+
+      final saleIds = <int>[];
+
+      for (final line in cartLines) {
+        final productId = line['product_id'] as int;
+        final quantity = line['quantity'] as int;
+        final productSyncId = line['product_sync_id'] as String;
+        final saleSyncId = uuid.v4();
+        final movementSyncId = uuid.v4();
+
+        final updatedRows = await transaction.rawUpdate(
+          '''
+          UPDATE ${DatabaseService.productsTable}
+          SET stock_quantity = stock_quantity - ?,
+              ${DatabaseService.syncStatusColumn} = 'pending',
+              ${DatabaseService.updatedAtColumn} = ?
+          WHERE id = ?
+            AND stock_quantity >= ?
+            AND ${DatabaseService.deletedAtColumn} IS NULL
+          ''',
+          [quantity, now, productId, quantity],
+        );
+
+        if (updatedRows != 1) {
+          throw StateError(
+            'Stock changed during checkout. Please review the cart and try again.',
+          );
+        }
+
+        final saleId = await transaction.insert(DatabaseService.salesTable, {
+          'product_id': productId,
+          'product_sync_id': productSyncId,
+          'order_sync_id': orderSyncId,
+          'product_name': line['product_name'],
+          'quantity': quantity,
+          'buying_price': line['buying_price'],
+          'selling_price': line['selling_price'],
+          'total_amount': line['total_amount'],
+          'created_at': now,
+          DatabaseService.syncIdColumn: saleSyncId,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        });
+
+        await transaction.insert(DatabaseService.inventoryMovementsTable, {
+          'sync_id': movementSyncId,
+          'product_sync_id': productSyncId,
+          'movement_type': 'sale',
+          'quantity_delta': -quantity,
+          'source_sale_sync_id': saleSyncId,
+          'note': 'Stock deducted for order $orderSyncId',
+          'created_at': now,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        });
+
+        saleIds.add(saleId);
+      }
+
+      for (final payment in payments) {
+        await transaction.insert(DatabaseService.salePaymentsTable, {
+          DatabaseService.syncIdColumn: uuid.v4(),
+          'order_sync_id': orderSyncId,
+          'payment_method': payment.method.name,
+          'amount': toCents(payment.amount) / 100.0,
+          'reference': payment.reference?.trim().isEmpty ?? true
+              ? null
+              : payment.reference!.trim(),
+          'note': payment.note?.trim().isEmpty ?? true
+              ? null
+              : payment.note!.trim(),
+          'created_at': now,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        });
+      }
+
+      return CheckoutResult(
+        orderId: orderId,
+        orderSyncId: orderSyncId,
+        totalAmount: totalCents / 100.0,
+        amountPaid: paidCents / 100.0,
+        balanceDue: (totalCents - paidCents) / 100.0,
+        saleIds: saleIds,
+      );
     });
   }
 
@@ -362,6 +575,176 @@ class SaleRepository {
       ''', whereArgs);
   }
 
+  /// Cancels a standalone sale or the entire checkout order it belongs to.
+  /// Stock restoration, audit updates, and cancellation movements are atomic.
+  Future<void> cancelSale({required int saleId, required String reason}) async {
+    final trimmedReason = reason.trim();
+    if (trimmedReason.isEmpty) {
+      throw ArgumentError('A cancellation reason is required');
+    }
+
+    final database = await _databaseService.database;
+
+    await database.transaction<void>((transaction) async {
+      final now = _nowUtc;
+      final selectedRows = await transaction.query(
+        DatabaseService.salesTable,
+        where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+        whereArgs: [saleId],
+        limit: 1,
+      );
+
+      if (selectedRows.isEmpty) {
+        throw StateError('Sale not found');
+      }
+
+      final selected = selectedRows.first;
+      final orderSyncId = selected['order_sync_id'] as String?;
+      final isOrderSale = orderSyncId != null && orderSyncId.isNotEmpty;
+
+      final affectedSales = isOrderSale
+          ? await transaction.query(
+              DatabaseService.salesTable,
+              where:
+                  'order_sync_id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+              whereArgs: [orderSyncId],
+              orderBy: 'id ASC',
+            )
+          : [selected];
+
+      if (affectedSales.isEmpty) {
+        throw StateError('No sale records were found for cancellation');
+      }
+
+      final allAlreadyCancelled = affectedSales.every(
+        (sale) => sale['status'] == 'cancelled',
+      );
+      if (allAlreadyCancelled) {
+        final sameReason = affectedSales.every(
+          (sale) => sale['cancellation_reason'] == trimmedReason,
+        );
+        if (sameReason) {
+          return;
+        }
+        throw StateError('This sale has already been cancelled');
+      }
+
+      if (affectedSales.any((sale) => sale['status'] == 'cancelled')) {
+        throw StateError('The sale or order is only partially cancelled');
+      }
+
+      // Do not reverse a sale that already has a return: that could restore
+      // stock twice or make the inventory and financial audit inconsistent.
+      for (final sale in affectedSales) {
+        final saleSyncId = sale[DatabaseService.syncIdColumn] as String?;
+        if (saleSyncId == null || saleSyncId.isEmpty) {
+          throw StateError('Sale synchronization ID is missing');
+        }
+
+        final returnRows = await transaction.query(
+          DatabaseService.salesReturnsTable,
+          columns: ['id'],
+          where:
+              'sale_sync_id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+          whereArgs: [saleSyncId],
+          limit: 1,
+        );
+        if (returnRows.isNotEmpty) {
+          throw StateError(
+            'This sale has a customer return. Process the return separately; cancellation is not allowed.',
+          );
+        }
+      }
+
+      for (final sale in affectedSales) {
+        final productId = sale['product_id'] as int;
+        final quantity = sale['quantity'] as int;
+        final productSyncId = sale['product_sync_id'] as String?;
+        final saleSyncId = sale[DatabaseService.syncIdColumn] as String?;
+
+        if (quantity <= 0 ||
+            productSyncId == null ||
+            productSyncId.isEmpty ||
+            saleSyncId == null ||
+            saleSyncId.isEmpty) {
+          throw StateError('Sale or product data is incomplete');
+        }
+
+        final updatedProducts = await transaction.rawUpdate(
+          '''
+          UPDATE ${DatabaseService.productsTable}
+          SET stock_quantity = stock_quantity + ?,
+              ${DatabaseService.syncStatusColumn} = 'pending',
+              ${DatabaseService.updatedAtColumn} = ?
+          WHERE id = ?
+            AND ${DatabaseService.syncIdColumn} = ?
+            AND ${DatabaseService.deletedAtColumn} IS NULL
+          ''',
+          [quantity, now, productId, productSyncId],
+        );
+
+        if (updatedProducts != 1) {
+          throw StateError(
+            'Product not found; cancellation stock restoration was stopped',
+          );
+        }
+
+        await transaction.insert(DatabaseService.inventoryMovementsTable, {
+          'sync_id': const Uuid().v4(),
+          'product_sync_id': productSyncId,
+          'movement_type': 'cancellation',
+          'quantity_delta': quantity,
+          'source_sale_sync_id': saleSyncId,
+          'note': 'Sale cancellation: $trimmedReason',
+          'created_at': now,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        }, conflictAlgorithm: ConflictAlgorithm.abort);
+
+        final updatedSales = await transaction.update(
+          DatabaseService.salesTable,
+          {
+            'status': 'cancelled',
+            'cancellation_reason': trimmedReason,
+            'cancelled_at': now,
+            DatabaseService.syncStatusColumn: 'pending',
+            DatabaseService.updatedAtColumn: now,
+          },
+          where: 'id = ? AND status = ?',
+          whereArgs: [sale['id'], 'completed'],
+        );
+
+        if (updatedSales != 1) {
+          throw StateError(
+            'Sale status changed during cancellation; no changes were saved',
+          );
+        }
+      }
+
+      if (isOrderSale) {
+        final updatedOrders = await transaction.update(
+          DatabaseService.saleOrdersTable,
+          {
+            'status': 'cancelled',
+            'cancellation_reason': trimmedReason,
+            'cancelled_at': now,
+            DatabaseService.syncStatusColumn: 'pending',
+            DatabaseService.updatedAtColumn: now,
+          },
+          where: 'sync_id = ? AND status = ?',
+          whereArgs: [orderSyncId, 'completed'],
+        );
+
+        if (updatedOrders != 1) {
+          throw StateError(
+            'Order status changed during cancellation; no changes were saved',
+          );
+        }
+      }
+    });
+  }
+
   Sale _saleFromRow(Map<String, dynamic> row) {
     return Sale(
       id: row['id'] as int,
@@ -381,5 +764,177 @@ class SaleRepository {
     }
 
     return (result.first[column] as num?)?.toDouble() ?? 0.0;
+  }
+
+  /// Records a full or partial customer return atomically.
+  ///
+  /// [restockedQuantity] is the portion of the returned quantity that is
+  /// suitable for resale. Damaged items can be refunded without restocking.
+  /// Pass the same [requestSyncId] when retrying a request.
+  Future<int> recordReturn({
+    required int saleId,
+    required int quantity,
+    required int restockedQuantity,
+    required String reason,
+    String? requestSyncId,
+  }) async {
+    if (quantity <= 0) {
+      throw ArgumentError('Return quantity must be greater than zero');
+    }
+    if (restockedQuantity < 0 || restockedQuantity > quantity) {
+      throw ArgumentError(
+        'Restocked quantity must be between zero and return quantity',
+      );
+    }
+    if (reason.trim().isEmpty) {
+      throw ArgumentError('A return reason is required');
+    }
+    if (requestSyncId != null && requestSyncId.trim().isEmpty) {
+      throw ArgumentError('Request synchronization ID cannot be empty');
+    }
+
+    final database = await _databaseService.database;
+
+    return database.transaction<int>((transaction) async {
+      final now = _nowUtc;
+      final returnSyncId = requestSyncId ?? const Uuid().v4();
+
+      // An identical retry returns the existing record without changing stock.
+      final existingReturns = await transaction.query(
+        DatabaseService.salesReturnsTable,
+        where: 'sync_id = ?',
+        whereArgs: [returnSyncId],
+        limit: 1,
+      );
+
+      if (existingReturns.isNotEmpty) {
+        final existing = existingReturns.first;
+        final saleRows = await transaction.query(
+          DatabaseService.salesTable,
+          columns: [DatabaseService.syncIdColumn],
+          where: 'id = ?',
+          whereArgs: [saleId],
+          limit: 1,
+        );
+
+        if (saleRows.isNotEmpty &&
+            existing['sale_sync_id'] == saleRows.first['sync_id'] &&
+            existing['quantity'] == quantity &&
+            existing['restocked_quantity'] == restockedQuantity &&
+            existing['reason'] == reason.trim()) {
+          return existing['id'] as int;
+        }
+
+        throw StateError(
+          'This return request ID has already been used for another request',
+        );
+      }
+
+      final saleRows = await transaction.query(
+        DatabaseService.salesTable,
+        where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+        whereArgs: [saleId],
+        limit: 1,
+      );
+
+      if (saleRows.isEmpty) {
+        throw StateError('Sale not found');
+      }
+
+      final sale = saleRows.first;
+      final saleSyncId = sale[DatabaseService.syncIdColumn] as String?;
+      final productSyncId = sale['product_sync_id'] as String?;
+      final productId = sale['product_id'] as int;
+      final saleQuantity = sale['quantity'] as int;
+
+      if (saleSyncId == null || saleSyncId.isEmpty) {
+        throw StateError('Sale synchronization ID is missing');
+      }
+      if (productSyncId == null || productSyncId.isEmpty) {
+        throw StateError('Sale product synchronization ID is missing');
+      }
+
+      final priorReturns = await transaction.rawQuery(
+        '''
+        SELECT COALESCE(SUM(quantity), 0) AS returned_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE sale_sync_id = ?
+          AND ${DatabaseService.deletedAtColumn} IS NULL
+        ''',
+        [saleSyncId],
+      );
+
+      final returnedQuantity = (priorReturns.first['returned_quantity'] as num)
+          .toInt();
+
+      if (quantity > saleQuantity - returnedQuantity) {
+        throw StateError(
+          'Return quantity exceeds the remaining returnable quantity',
+        );
+      }
+
+      final originalAmount = (sale['total_amount'] as num).toDouble();
+      final buyingPrice = (sale['buying_price'] as num).toDouble();
+      final sellingPrice = (sale['selling_price'] as num).toDouble();
+      final refundAmount = originalAmount * quantity / saleQuantity;
+
+      if (restockedQuantity > 0) {
+        final updatedRows = await transaction.rawUpdate(
+          '''
+          UPDATE ${DatabaseService.productsTable}
+          SET stock_quantity = stock_quantity + ?,
+              ${DatabaseService.syncStatusColumn} = 'pending',
+              ${DatabaseService.updatedAtColumn} = ?
+          WHERE id = ?
+            AND ${DatabaseService.deletedAtColumn} IS NULL
+            AND ${DatabaseService.syncIdColumn} = ?
+          ''',
+          [restockedQuantity, now, productId, productSyncId],
+        );
+
+        if (updatedRows == 0) {
+          throw StateError('Product not found; stock was not restored');
+        }
+      }
+
+      final returnId = await transaction.insert(
+        DatabaseService.salesReturnsTable,
+        {
+          'sync_id': returnSyncId,
+          'sale_sync_id': saleSyncId,
+          'product_id': productId,
+          'product_sync_id': productSyncId,
+          'product_name': sale['product_name'],
+          'quantity': quantity,
+          'restocked_quantity': restockedQuantity,
+          'refund_amount': refundAmount,
+          'buying_price': buyingPrice,
+          'selling_price': sellingPrice,
+          'reason': reason.trim(),
+          'created_at': now,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        },
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+
+      if (restockedQuantity > 0) {
+        await transaction.insert(DatabaseService.inventoryMovementsTable, {
+          'sync_id': const Uuid().v4(),
+          'product_sync_id': productSyncId,
+          'movement_type': 'return',
+          'quantity_delta': restockedQuantity,
+          'source_sale_sync_id': saleSyncId,
+          'note': 'Customer return: ${reason.trim()}',
+          'created_at': now,
+          DatabaseService.syncStatusColumn: 'pending',
+          DatabaseService.updatedAtColumn: now,
+          DatabaseService.deletedAtColumn: null,
+        }, conflictAlgorithm: ConflictAlgorithm.abort);
+      }
+
+      return returnId;
+    });
   }
 }
