@@ -49,6 +49,7 @@ class BusinessSyncService {
       DatabaseService.saleOrdersTable,
       DatabaseService.salesTable,
       DatabaseService.salePaymentsTable,
+      DatabaseService.salesReturnsTable,
     ]) {
       downloaded[name] = await _downloadCollection(
         db: db,
@@ -63,6 +64,7 @@ class BusinessSyncService {
       DatabaseService.saleOrdersTable,
       DatabaseService.salesTable,
       DatabaseService.salePaymentsTable,
+      DatabaseService.salesReturnsTable,
     ]) {
       uploaded[name] = await _uploadPending(
         db: db,
@@ -265,6 +267,7 @@ class BusinessSyncService {
       DatabaseService.expensesTable,
       DatabaseService.saleOrdersTable,
       DatabaseService.salePaymentsTable,
+      DatabaseService.salesReturnsTable,
     };
 
     if (!allowed.contains(collectionName)) {
@@ -284,7 +287,8 @@ class BusinessSyncService {
     final record = Map<String, dynamic>.from(row);
     record.remove('id');
 
-    if (collectionName == DatabaseService.salesTable) {
+    if (collectionName == DatabaseService.salesTable ||
+        collectionName == DatabaseService.salesReturnsTable) {
       record.remove('product_id');
     }
 
@@ -383,13 +387,18 @@ class BusinessSyncService {
       });
     } else if (collectionName == DatabaseService.salesTable) {
       final productSyncId = cloud['product_sync_id'];
+      final saleStatus = cloud['status'];
+
       if (productSyncId is! String ||
           cloud['product_name'] is! String ||
           cloud['quantity'] is! num ||
           cloud['buying_price'] is! num ||
           cloud['selling_price'] is! num ||
           cloud['total_amount'] is! num ||
-          cloud['created_at'] == null) {
+          cloud['created_at'] == null ||
+          (saleStatus != null &&
+              (saleStatus is! String ||
+                  !['completed', 'cancelled'].contains(saleStatus)))) {
         return null;
       }
 
@@ -410,11 +419,82 @@ class BusinessSyncService {
         'order_sync_id': cloud['order_sync_id'] is String
             ? cloud['order_sync_id']
             : null,
+        'status': saleStatus is String ? saleStatus : 'completed',
+        'cancellation_reason': cloud['cancellation_reason'] is String
+            ? cloud['cancellation_reason']
+            : null,
+        'cancelled_at': cloud['cancelled_at'] is String
+            ? cloud['cancelled_at']
+            : null,
         'product_name': cloud['product_name'],
         'quantity': (cloud['quantity'] as num).toInt(),
         'buying_price': (cloud['buying_price'] as num).toDouble(),
         'selling_price': (cloud['selling_price'] as num).toDouble(),
         'total_amount': (cloud['total_amount'] as num).toDouble(),
+        'created_at': cloud['created_at'].toString(),
+      });
+    } else if (collectionName == DatabaseService.salesReturnsTable) {
+      final saleSyncId = cloud['sale_sync_id'];
+      final productSyncId = cloud['product_sync_id'];
+      final quantity = cloud['quantity'];
+      final restockedQuantity = cloud['restocked_quantity'];
+      final refundAmount = cloud['refund_amount'];
+      final buyingPrice = cloud['buying_price'];
+      final sellingPrice = cloud['selling_price'];
+      final reason = cloud['reason'];
+
+      if (saleSyncId is! String ||
+          saleSyncId.trim().isEmpty ||
+          productSyncId is! String ||
+          productSyncId.trim().isEmpty ||
+          cloud['product_name'] is! String ||
+          quantity is! num ||
+          quantity <= 0 ||
+          restockedQuantity is! num ||
+          restockedQuantity < 0 ||
+          restockedQuantity > quantity ||
+          refundAmount is! num ||
+          refundAmount < 0 ||
+          buyingPrice is! num ||
+          buyingPrice < 0 ||
+          sellingPrice is! num ||
+          sellingPrice < 0 ||
+          reason is! String ||
+          reason.trim().isEmpty ||
+          cloud['created_at'] == null) {
+        return null;
+      }
+
+      final products = await db.query(
+        DatabaseService.productsTable,
+        columns: ['id'],
+        where: '${DatabaseService.syncIdColumn} = ?',
+        whereArgs: [productSyncId],
+        limit: 1,
+      );
+
+      final sales = await db.query(
+        DatabaseService.salesTable,
+        columns: ['id'],
+        where: '${DatabaseService.syncIdColumn} = ?',
+        whereArgs: [saleSyncId],
+        limit: 1,
+      );
+
+      // Wait until both related records exist on this device.
+      if (products.isEmpty || sales.isEmpty) return null;
+
+      record.addAll({
+        'sale_sync_id': saleSyncId,
+        'product_id': products.first['id'],
+        'product_sync_id': productSyncId,
+        'product_name': cloud['product_name'],
+        'quantity': quantity.toInt(),
+        'restocked_quantity': restockedQuantity.toInt(),
+        'refund_amount': refundAmount.toDouble(),
+        'buying_price': buyingPrice.toDouble(),
+        'selling_price': sellingPrice.toDouble(),
+        'reason': reason,
         'created_at': cloud['created_at'].toString(),
       });
     } else {

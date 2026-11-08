@@ -329,14 +329,37 @@ service cloud.firestore {
               && (!("reference" in request.resource.data) || request.resource.data.reference == null || request.resource.data.reference is string)
               && (!("note" in request.resource.data) || request.resource.data.note == null || request.resource.data.note is string)
             )
+            || (
+              collectionName == "sales_returns"
+              && request.resource.data.sale_sync_id is string
+              && request.resource.data.sale_sync_id.size() > 0
+              && request.resource.data.product_sync_id is string
+              && request.resource.data.product_sync_id.size() > 0
+              && request.resource.data.product_name is string
+              && request.resource.data.quantity is number
+              && request.resource.data.quantity > 0
+              && request.resource.data.restocked_quantity is number
+              && request.resource.data.restocked_quantity >= 0
+              && request.resource.data.restocked_quantity <= request.resource.data.quantity
+              && request.resource.data.refund_amount is number
+              && request.resource.data.refund_amount >= 0
+              && request.resource.data.buying_price is number
+              && request.resource.data.buying_price >= 0
+              && request.resource.data.selling_price is number
+              && request.resource.data.selling_price >= 0
+              && request.resource.data.reason is string
+              && request.resource.data.reason.size() > 0
+              && request.resource.data.created_at is string
+            )
+
           );
       }
 
       allow get, list: if isActiveBusinessMember(businessId)
-        && collectionName in ['products', 'sales', 'expenses', 'sale_orders', 'sale_payments'];
+        && collectionName in ['products', 'sales', 'expenses', 'sale_orders', 'sale_payments', 'sales_returns'];
 
       allow create, update: if isActiveBusinessMember(businessId)
-        && collectionName in ['products', 'sales', 'expenses', 'sale_orders', 'sale_payments']
+        && collectionName in ['products', 'sales', 'expenses', 'sale_orders', 'sale_payments', 'sales_returns']
         && validSyncRecord();
 
       allow delete: if false;

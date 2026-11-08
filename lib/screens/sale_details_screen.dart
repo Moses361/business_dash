@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/sale.dart';
+import '../repositories/sale_repository.dart';
 
 const Color _primary = Color(0xFF176B4D);
 const Color _primaryDark = Color(0xFF0F513A);
@@ -11,10 +12,372 @@ const Color _textSecondary = Color(0xFF68756D);
 const Color _border = Color(0xFFE1E9E4);
 const Color _danger = Color(0xFFD64545);
 
-class SaleDetailsScreen extends StatelessWidget {
+class SaleDetailsScreen extends StatefulWidget {
   final Sale sale;
+  final SaleRepository? saleRepository;
 
-  const SaleDetailsScreen({super.key, required this.sale});
+  const SaleDetailsScreen({super.key, required this.sale, this.saleRepository});
+
+  @override
+  State<SaleDetailsScreen> createState() => _SaleDetailsScreenState();
+}
+
+class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
+  late final SaleRepository _repository;
+  Future<Map<String, Object?>?>? _summaryFuture;
+
+  Sale get sale => widget.sale;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = widget.saleRepository ?? SaleRepository();
+    _loadSummary();
+  }
+
+  void _loadSummary() {
+    final id = sale.id;
+    _summaryFuture = id == null ? null : _repository.getSaleReturnSummary(id);
+  }
+
+  void _refreshSummary() {
+    if (!mounted) return;
+    setState(_loadSummary);
+  }
+
+  Future<void> _showReturnDialog() async {
+    final saleId = sale.id;
+    if (saleId == null) return;
+
+    final quantityController = TextEditingController();
+    final restockedController = TextEditingController();
+    final reasonController = TextEditingController();
+
+    try {
+      final result = await showDialog<Map<String, Object?>>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Return ${sale.productName}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Original quantity: ${sale.quantity} units',
+                  style: const TextStyle(color: _textSecondary),
+                ),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity being returned',
+                  ),
+                ),
+                TextField(
+                  controller: restockedController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity suitable for resale',
+                    helperText: 'Enter 0 if all returned goods are damaged.',
+                  ),
+                ),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Return reason (required)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final quantity = int.tryParse(quantityController.text.trim());
+                final restocked = int.tryParse(restockedController.text.trim());
+                final reason = reasonController.text.trim();
+
+                if (quantity == null ||
+                    quantity <= 0 ||
+                    restocked == null ||
+                    restocked < 0 ||
+                    restocked > quantity ||
+                    reason.isEmpty) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Enter valid quantities and a reason.'),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(dialogContext, {
+                  'quantity': quantity,
+                  'restocked': restocked,
+                  'reason': reason,
+                });
+              },
+              child: const Text('Record return'),
+            ),
+          ],
+        ),
+      );
+
+      if (result == null) return;
+
+      await _repository.recordReturn(
+        saleId: saleId,
+        quantity: result['quantity'] as int,
+        restockedQuantity: result['restocked'] as int,
+        reason: result['reason'] as String,
+      );
+
+      _refreshSummary();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Customer return recorded.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not record return: $error')),
+        );
+      }
+    } finally {
+      quantityController.dispose();
+      restockedController.dispose();
+      reasonController.dispose();
+    }
+  }
+
+  Future<void> _showCancelDialog() async {
+    final saleId = sale.id;
+    if (saleId == null) return;
+
+    final reasonController = TextEditingController();
+    final isOrder = sale.orderSyncId != null;
+
+    try {
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(isOrder ? 'Cancel entire order?' : 'Cancel this sale?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isOrder
+                    ? 'This sale belongs to a checkout order. '
+                          'The entire order will be cancelled.'
+                    : 'This sale will be cancelled and its stock restored.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Cancellation reason (required)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Keep sale'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: _danger),
+              onPressed: () {
+                final value = reasonController.text.trim();
+                if (value.isEmpty) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('A cancellation reason is required.'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, value);
+              },
+              child: const Text('Confirm cancellation'),
+            ),
+          ],
+        ),
+      );
+
+      if (reason == null) return;
+
+      await _repository.cancelSale(saleId: saleId, reason: reason);
+      _refreshSummary();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isOrder ? 'Entire order cancelled.' : 'Sale cancelled.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not cancel sale: $error')),
+        );
+      }
+    } finally {
+      reasonController.dispose();
+    }
+  }
+
+  Widget _buildReturnActions() {
+    return FutureBuilder<Map<String, Object?>?>(
+      future: _summaryFuture,
+      builder: (context, snapshot) {
+        final summary = snapshot.data;
+        final isCancelled = summary?['status'] == 'cancelled';
+        final returned = (summary?['returned_quantity'] as num?)?.toInt() ?? 0;
+        final remaining =
+            (summary?['remaining_quantity'] as num?)?.toInt() ?? sale.quantity;
+        final refund = (summary?['refund_amount'] as num?)?.toDouble() ?? 0;
+        final returns = (summary?['returns'] as List?) ?? [];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SectionHeading(
+              title: 'Returns and Adjustments',
+              subtitle: 'Return history and transaction actions',
+            ),
+            const SizedBox(height: 12),
+            _InformationPanel(
+              children: [
+                _DetailRow(
+                  icon: Icons.assignment_return_outlined,
+                  label: 'Quantity returned',
+                  value: '$returned units',
+                ),
+                _DetailRow(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Quantity remaining',
+                  value: '$remaining units',
+                ),
+                _DetailRow(
+                  icon: Icons.money_off_outlined,
+                  label: 'Refund recorded',
+                  value: _formatAmount(refund),
+                  isLast: true,
+                ),
+                if (isCancelled)
+                  const _DetailRow(
+                    icon: Icons.cancel_outlined,
+                    label: 'Sale status',
+                    value: 'Cancelled',
+                    isLast: true,
+                  ),
+                if (returns.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Return history',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        for (final item in returns)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              '${item['quantity']} units · '
+                              '${item['reason']} · '
+                              'Refund: ${_formatAmount((item['refund_amount'] as num?)?.toDouble() ?? 0)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            if (!isCancelled && remaining > 0) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _showReturnDialog,
+                  icon: const Icon(Icons.assignment_return_outlined),
+                  label: const Text('Record customer return'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _primary,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+              ),
+            ],
+            if (!isCancelled && returned == 0) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showCancelDialog,
+                  icon: const Icon(Icons.cancel_outlined, color: _danger),
+                  label: Text(
+                    sale.orderSyncId != null
+                        ? 'Cancel entire order'
+                        : 'Cancel sale',
+                    style: const TextStyle(color: _danger),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAdjustedFinancialCard() {
+    return FutureBuilder<Map<String, Object?>?>(
+      future: _summaryFuture,
+      builder: (context, snapshot) {
+        final summary = snapshot.data;
+        final refund = (summary?['refund_amount'] as num?)?.toDouble() ?? 0;
+        final restocked =
+            (summary?['restocked_quantity'] as num?)?.toInt() ?? 0;
+
+        final isCancelled = summary?['status'] == '''cancelled''';
+        final netRevenue = isCancelled ? 0.0 : sale.totalAmount - refund;
+        final adjustedCost = isCancelled
+            ? 0.0
+            : sale.buyingPrice * (sale.quantity - restocked);
+        final adjustedProfit = isCancelled ? 0.0 : netRevenue - adjustedCost;
+
+        return _buildFinancialCard(
+          sale.sellingPrice - sale.buyingPrice,
+          adjustedProfit >= 0,
+          netRevenue: netRevenue,
+          adjustedCost: adjustedCost,
+          adjustedProfit: adjustedProfit,
+        );
+      },
+    );
+  }
 
   String _formatAmount(double amount) {
     return 'KSh ${amount.toStringAsFixed(2)}';
@@ -34,9 +397,6 @@ class SaleDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profitPerUnit = sale.sellingPrice - sale.buyingPrice;
-    final isProfitable = sale.grossProfit >= 0;
-
     return Scaffold(
       backgroundColor: _background,
       appBar: AppBar(
@@ -60,12 +420,14 @@ class SaleDetailsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildInformationCard(),
           const SizedBox(height: 22),
+          _buildReturnActions(),
+          const SizedBox(height: 22),
           const _SectionHeading(
             title: 'Financial Breakdown',
-            subtitle: 'A summary of cost, revenue and profit',
+            subtitle: 'A summary of cost, revenue and profit after returns',
           ),
           const SizedBox(height: 12),
-          _buildFinancialCard(profitPerUnit, isProfitable),
+          _buildAdjustedFinancialCard(),
         ],
       ),
     );
@@ -247,7 +609,17 @@ class SaleDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFinancialCard(double profitPerUnit, bool isProfitable) {
+  Widget _buildFinancialCard(
+    double profitPerUnit,
+    bool isProfitable, {
+    double? netRevenue,
+    double? adjustedCost,
+    double? adjustedProfit,
+  }) {
+    final displayedRevenue = netRevenue ?? sale.totalAmount;
+    final displayedCost = adjustedCost ?? sale.totalCost;
+    final displayedProfit = adjustedProfit ?? sale.grossProfit;
+
     return _InformationPanel(
       children: [
         _DetailRow(
@@ -263,12 +635,12 @@ class SaleDetailsScreen extends StatelessWidget {
         _DetailRow(
           icon: Icons.inventory_outlined,
           label: 'Total cost',
-          value: _formatAmount(sale.totalCost),
+          value: _formatAmount(displayedCost),
         ),
         _DetailRow(
           icon: Icons.payments_outlined,
           label: 'Sale total',
-          value: _formatAmount(sale.totalAmount),
+          value: _formatAmount(displayedRevenue),
           isLast: true,
         ),
         const SizedBox(height: 8),
@@ -311,7 +683,7 @@ class SaleDetailsScreen extends StatelessWidget {
                   ),
                   Flexible(
                     child: Text(
-                      _formatAmount(sale.grossProfit),
+                      _formatAmount(displayedProfit),
                       textAlign: TextAlign.end,
                       style: TextStyle(
                         color: isProfitable ? _primary : _danger,

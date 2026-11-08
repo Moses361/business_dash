@@ -344,6 +344,69 @@ class SaleRepository {
     };
   }
 
+
+  /// Returns the recorded returns and remaining returnable quantity for a sale.
+  Future<Map<String, Object?>> getSaleReturnSummary(int saleId) async {
+    final database = await _databaseService.database;
+
+    final saleRows = await database.query(
+      DatabaseService.salesTable,
+      where: 'id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+      whereArgs: [saleId],
+      limit: 1,
+    );
+
+    if (saleRows.isEmpty) {
+      throw StateError('Sale not found');
+    }
+
+    final sale = saleRows.first;
+    final saleSyncId = sale[DatabaseService.syncIdColumn] as String?;
+
+    if (saleSyncId == null || saleSyncId.isEmpty) {
+      throw StateError('Sale synchronization ID is missing');
+    }
+
+    final returns = await database.query(
+      DatabaseService.salesReturnsTable,
+      where: 'sale_sync_id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+      whereArgs: [saleSyncId],
+      orderBy: 'created_at DESC, id DESC',
+    );
+
+    final returnedQuantity = returns.fold<int>(
+      0,
+      (sum, row) => sum + ((row['quantity'] as num?)?.toInt() ?? 0),
+    );
+
+    final restockedQuantity = returns.fold<int>(
+      0,
+      (sum, row) =>
+          sum + ((row['restocked_quantity'] as num?)?.toInt() ?? 0),
+    );
+
+    final refundAmount = returns.fold<double>(
+      0,
+      (sum, row) =>
+          sum + ((row['refund_amount'] as num?)?.toDouble() ?? 0),
+    );
+
+    final originalQuantity = (sale['quantity'] as num).toInt();
+
+    return {
+      'sale': sale,
+      'returns': returns,
+      'returned_quantity': returnedQuantity,
+      'restocked_quantity': restockedQuantity,
+      'refund_amount': refundAmount,
+      'remaining_quantity':
+          (originalQuantity - returnedQuantity).clamp(0, originalQuantity),
+      'status': sale['status']?.toString() ?? 'completed',
+      'cancellation_reason': sale['cancellation_reason'],
+      'cancelled_at': sale['cancelled_at'],
+    };
+  }
+
   Future<List<Sale>> getSales() async {
     final Database database = await _databaseService.database;
 
@@ -369,19 +432,26 @@ class SaleRepository {
   }
 
   Future<double> getTotalSales() async {
-    final Database database = await _databaseService.database;
-
+    final database = await _databaseService.database;
     final result = await database.rawQuery('''
-      SELECT COALESCE(SUM(total_amount), 0) AS total
-      FROM ${DatabaseService.salesTable}
+      SELECT COALESCE(SUM(
+        s.total_amount - COALESCE(r.refund_amount, 0)
+      ), 0) AS total
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT sale_sync_id, SUM(refund_amount) AS refund_amount
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
     ''');
-
     return _doubleValue(result, 'total');
   }
 
   Future<double> getTodaySales() async {
     final now = DateTime.now();
-
     return getSalesTotalBetween(
       DateTime(now.year, now.month, now.day),
       DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
@@ -389,37 +459,51 @@ class SaleRepository {
   }
 
   Future<double> getSalesTotalBetween(DateTime start, DateTime end) async {
-    final Database database = await _databaseService.database;
-
-    final result = await database.rawQuery(
-      '''
-      SELECT COALESCE(SUM(total_amount), 0) AS total
-      FROM ${DatabaseService.salesTable}
-      WHERE created_at >= ? AND created_at < ?
-      ''',
-      [start.toIso8601String(), end.toIso8601String()],
-    );
-
+    final database = await _databaseService.database;
+    final result = await database.rawQuery('''
+      SELECT COALESCE(SUM(
+        s.total_amount - COALESCE(r.refund_amount, 0)
+      ), 0) AS total
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT sale_sync_id, SUM(refund_amount) AS refund_amount
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
+        AND s.created_at >= ? AND s.created_at < ?
+    ''', [start.toIso8601String(), end.toIso8601String()]);
     return _doubleValue(result, 'total');
   }
 
   Future<double> getTotalProfit() async {
-    final Database database = await _databaseService.database;
-
+    final database = await _databaseService.database;
     final result = await database.rawQuery('''
-      SELECT COALESCE(
-        SUM((selling_price - buying_price) * quantity),
-        0
-      ) AS profit
-      FROM ${DatabaseService.salesTable}
+      SELECT COALESCE(SUM(
+        (s.selling_price - s.buying_price) * s.quantity
+        - COALESCE(r.refund_amount, 0)
+        + s.buying_price * COALESCE(r.restocked_quantity, 0)
+      ), 0) AS profit
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT
+          sale_sync_id,
+          SUM(refund_amount) AS refund_amount,
+          SUM(restocked_quantity) AS restocked_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
     ''');
-
     return _doubleValue(result, 'profit');
   }
 
   Future<double> getTodayProfit() async {
     final now = DateTime.now();
-
     return getProfitBetween(
       DateTime(now.year, now.month, now.day),
       DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
@@ -427,78 +511,92 @@ class SaleRepository {
   }
 
   Future<double> getProfitBetween(DateTime start, DateTime end) async {
-    final Database database = await _databaseService.database;
-
-    final result = await database.rawQuery(
-      '''
-      SELECT COALESCE(
-        SUM((selling_price - buying_price) * quantity),
-        0
-      ) AS profit
-      FROM ${DatabaseService.salesTable}
-      WHERE created_at >= ? AND created_at < ?
-      ''',
-      [start.toIso8601String(), end.toIso8601String()],
-    );
-
+    final database = await _databaseService.database;
+    final result = await database.rawQuery('''
+      SELECT COALESCE(SUM(
+        (s.selling_price - s.buying_price) * s.quantity
+        - COALESCE(r.refund_amount, 0)
+        + s.buying_price * COALESCE(r.restocked_quantity, 0)
+      ), 0) AS profit
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT
+          sale_sync_id,
+          SUM(refund_amount) AS refund_amount,
+          SUM(restocked_quantity) AS restocked_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
+        AND s.created_at >= ? AND s.created_at < ?
+    ''', [start.toIso8601String(), end.toIso8601String()]);
     return _doubleValue(result, 'profit');
   }
 
   Future<double> getTotalCostOfGoodsSold() async {
-    final Database database = await _databaseService.database;
-
+    final database = await _databaseService.database;
     final result = await database.rawQuery('''
-      SELECT COALESCE(
-        SUM(buying_price * quantity),
-        0
-      ) AS cost
-      FROM ${DatabaseService.salesTable}
+      SELECT COALESCE(SUM(
+        s.buying_price * (
+          s.quantity - COALESCE(r.restocked_quantity, 0)
+        )
+      ), 0) AS cost
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT sale_sync_id, SUM(restocked_quantity) AS restocked_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
     ''');
-
     return _doubleValue(result, 'cost');
   }
 
   Future<double> getCostOfGoodsSoldBetween(DateTime start, DateTime end) async {
-    final Database database = await _databaseService.database;
-
-    final result = await database.rawQuery(
-      '''
-      SELECT COALESCE(
-        SUM(buying_price * quantity),
-        0
-      ) AS cost
-      FROM ${DatabaseService.salesTable}
-      WHERE created_at >= ? AND created_at < ?
-      ''',
-      [start.toIso8601String(), end.toIso8601String()],
-    );
-
+    final database = await _databaseService.database;
+    final result = await database.rawQuery('''
+      SELECT COALESCE(SUM(
+        s.buying_price * (
+          s.quantity - COALESCE(r.restocked_quantity, 0)
+        )
+      ), 0) AS cost
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT sale_sync_id, SUM(restocked_quantity) AS restocked_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
+        AND s.created_at >= ? AND s.created_at < ?
+    ''', [start.toIso8601String(), end.toIso8601String()]);
     return _doubleValue(result, 'cost');
   }
 
   Future<int> getSaleCount() async {
-    final Database database = await _databaseService.database;
-
+    final database = await _databaseService.database;
     final result = await database.rawQuery('''
       SELECT COUNT(*) AS count
       FROM ${DatabaseService.salesTable}
+      WHERE status = 'completed' AND deleted_at IS NULL
     ''');
-
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> getSaleCountBetween(DateTime start, DateTime end) async {
-    final Database database = await _databaseService.database;
-
-    final result = await database.rawQuery(
-      '''
+    final database = await _databaseService.database;
+    final result = await database.rawQuery('''
       SELECT COUNT(*) AS count
       FROM ${DatabaseService.salesTable}
-      WHERE created_at >= ? AND created_at < ?
-      ''',
-      [start.toIso8601String(), end.toIso8601String()],
-    );
-
+      WHERE status = 'completed'
+        AND deleted_at IS NULL
+        AND created_at >= ? AND created_at < ?
+    ''', [start.toIso8601String(), end.toIso8601String()]);
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
@@ -506,25 +604,38 @@ class SaleRepository {
     DateTime start,
     DateTime end,
   ) async {
-    final Database database = await _databaseService.database;
-
-    return database.rawQuery(
-      '''
+    final database = await _databaseService.database;
+    return database.rawQuery('''
       SELECT
-        substr(created_at, 1, 10) AS date,
-        COALESCE(SUM(total_amount), 0) AS sales,
-        COALESCE(
-          SUM((selling_price - buying_price) * quantity),
-          0
-        ) AS profit,
-        COALESCE(SUM(quantity), 0) AS quantity
-      FROM ${DatabaseService.salesTable}
-      WHERE created_at >= ? AND created_at < ?
-      GROUP BY substr(created_at, 1, 10)
+        substr(s.created_at, 1, 10) AS date,
+        COALESCE(SUM(
+          s.total_amount - COALESCE(r.refund_amount, 0)
+        ), 0) AS sales,
+        COALESCE(SUM(
+          (s.selling_price - s.buying_price) * s.quantity
+          - COALESCE(r.refund_amount, 0)
+          + s.buying_price * COALESCE(r.restocked_quantity, 0)
+        ), 0) AS profit,
+        COALESCE(SUM(
+          s.quantity - COALESCE(r.returned_quantity, 0)
+        ), 0) AS quantity
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT
+          sale_sync_id,
+          SUM(refund_amount) AS refund_amount,
+          SUM(restocked_quantity) AS restocked_quantity,
+          SUM(quantity) AS returned_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE s.status = 'completed'
+        AND s.deleted_at IS NULL
+        AND s.created_at >= ? AND s.created_at < ?
+      GROUP BY substr(s.created_at, 1, 10)
       ORDER BY date ASC
-      ''',
-      [start.toIso8601String(), end.toIso8601String()],
-    );
+    ''', [start.toIso8601String(), end.toIso8601String()]);
   }
 
   Future<List<Map<String, dynamic>>> getTopSellingProducts({
@@ -532,82 +643,102 @@ class SaleRepository {
     DateTime? end,
     int limit = 10,
   }) async {
-    final Database database = await _databaseService.database;
-
-    final whereParts = <String>[];
-    final whereArgs = <dynamic>[];
-
-    if (start != null) {
-      whereParts.add('created_at >= ?');
-      whereArgs.add(start.toIso8601String());
-    }
-
-    if (end != null) {
-      whereParts.add('created_at < ?');
-      whereArgs.add(end.toIso8601String());
-    }
-
-    final whereClause = whereParts.isEmpty
-        ? ''
-        : 'WHERE ${whereParts.join(' AND ')}';
-
-    return database.rawQuery(
-      '''
-      SELECT
-        product_id,
-        product_name,
-        SUM(quantity) AS quantity,
-        SUM(total_amount) AS sales,
-        SUM((selling_price - buying_price) * quantity) AS profit
-      FROM ${DatabaseService.salesTable}
-      $whereClause
-      GROUP BY product_id, product_name
-      ORDER BY quantity DESC
-      LIMIT ?
-      ''',
-      [...whereArgs, limit],
-    );
-  }
-
-  Future<List<Map<String, dynamic>>> getSalesByCategory({
-    DateTime? start,
-    DateTime? end,
-  }) async {
-    final Database database = await _databaseService.database;
-
-    final whereParts = <String>[];
+    final database = await _databaseService.database;
+    final whereParts = <String>[
+      "s.status = 'completed'",
+      's.deleted_at IS NULL',
+    ];
     final whereArgs = <dynamic>[];
 
     if (start != null) {
       whereParts.add('s.created_at >= ?');
       whereArgs.add(start.toIso8601String());
     }
-
     if (end != null) {
       whereParts.add('s.created_at < ?');
       whereArgs.add(end.toIso8601String());
     }
 
-    final whereClause = whereParts.isEmpty
-        ? ''
-        : 'WHERE ${whereParts.join(' AND ')}';
+    return database.rawQuery('''
+      SELECT
+        s.product_id,
+        s.product_name,
+        SUM(s.quantity - COALESCE(r.returned_quantity, 0)) AS quantity,
+        SUM(s.total_amount - COALESCE(r.refund_amount, 0)) AS sales,
+        SUM(
+          (s.selling_price - s.buying_price) * s.quantity
+          - COALESCE(r.refund_amount, 0)
+          + s.buying_price * COALESCE(r.restocked_quantity, 0)
+        ) AS profit
+      FROM ${DatabaseService.salesTable} s
+      LEFT JOIN (
+        SELECT
+          sale_sync_id,
+          SUM(quantity) AS returned_quantity,
+          SUM(refund_amount) AS refund_amount,
+          SUM(restocked_quantity) AS restocked_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE ${whereParts.join(' AND ')}
+      GROUP BY s.product_id, s.product_name
+      ORDER BY quantity DESC
+      LIMIT ?
+    ''', [...whereArgs, limit]);
+  }
+
+  Future<List<Map<String, dynamic>>> getSalesByCategory({
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    final database = await _databaseService.database;
+    final whereParts = <String>[
+      "s.status = 'completed'",
+      's.deleted_at IS NULL',
+    ];
+    final whereArgs = <dynamic>[];
+
+    if (start != null) {
+      whereParts.add('s.created_at >= ?');
+      whereArgs.add(start.toIso8601String());
+    }
+    if (end != null) {
+      whereParts.add('s.created_at < ?');
+      whereArgs.add(end.toIso8601String());
+    }
 
     return database.rawQuery('''
       SELECT
         p.category AS category,
-        COALESCE(SUM(s.quantity), 0) AS quantity,
-        COALESCE(SUM(s.total_amount), 0) AS sales,
-        COALESCE(
-          SUM((s.selling_price - s.buying_price) * s.quantity),
-          0
-        ) AS profit
+        COALESCE(SUM(
+          s.quantity - COALESCE(r.returned_quantity, 0)
+        ), 0) AS quantity,
+        COALESCE(SUM(
+          s.total_amount - COALESCE(r.refund_amount, 0)
+        ), 0) AS sales,
+        COALESCE(SUM(
+          (s.selling_price - s.buying_price) * s.quantity
+          - COALESCE(r.refund_amount, 0)
+          + s.buying_price * COALESCE(r.restocked_quantity, 0)
+        ), 0) AS profit
       FROM ${DatabaseService.salesTable} s
       INNER JOIN ${DatabaseService.productsTable} p
         ON p.id = s.product_id
-      $whereClause
+      LEFT JOIN (
+        SELECT
+          sale_sync_id,
+          SUM(quantity) AS returned_quantity,
+          SUM(refund_amount) AS refund_amount,
+          SUM(restocked_quantity) AS restocked_quantity
+        FROM ${DatabaseService.salesReturnsTable}
+        WHERE deleted_at IS NULL
+        GROUP BY sale_sync_id
+      ) r ON r.sale_sync_id = s.sync_id
+      WHERE ${whereParts.join(' AND ')}
       GROUP BY p.category
       ORDER BY sales DESC
-      ''', whereArgs);
+    ''', whereArgs);
   }
 
   /// Cancels a standalone sale or the entire checkout order it belongs to.
