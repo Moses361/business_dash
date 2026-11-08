@@ -202,8 +202,10 @@ class SaleRepository {
         });
       }
 
-      if (paidCents > totalCents) {
-        throw ArgumentError('Payments cannot exceed the order total');
+      if (paidCents != totalCents) {
+        throw ArgumentError(
+          'Full payment is required before completing a sale',
+        );
       }
 
       final orderId = await transaction.insert(
@@ -307,6 +309,39 @@ class SaleRepository {
         saleIds: saleIds,
       );
     });
+  }
+
+  Future<Map<String, Object?>?> getOrderDetails(String orderSyncId) async {
+    final Database database = await _databaseService.database;
+
+    final orderRows = await database.query(
+      DatabaseService.saleOrdersTable,
+      where: 'sync_id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+      whereArgs: [orderSyncId],
+      limit: 1,
+    );
+
+    if (orderRows.isEmpty) return null;
+
+    final salesRows = await database.query(
+      DatabaseService.salesTable,
+      where: 'order_sync_id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+      whereArgs: [orderSyncId],
+      orderBy: 'id ASC',
+    );
+
+    final paymentRows = await database.query(
+      DatabaseService.salePaymentsTable,
+      where: 'order_sync_id = ? AND ${DatabaseService.deletedAtColumn} IS NULL',
+      whereArgs: [orderSyncId],
+      orderBy: 'id ASC',
+    );
+
+    return {
+      'order': orderRows.first,
+      'sales': salesRows,
+      'payments': paymentRows,
+    };
   }
 
   Future<List<Sale>> getSales() async {
@@ -755,6 +790,7 @@ class SaleRepository {
       sellingPrice: (row['selling_price'] as num).toDouble(),
       totalAmount: (row['total_amount'] as num).toDouble(),
       createdAt: DateTime.parse(row['created_at'] as String),
+      orderSyncId: row['order_sync_id'] as String?,
     );
   }
 

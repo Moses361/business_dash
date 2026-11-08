@@ -128,6 +128,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
       );
 
       if (_isEditing) {
+        final int stockDifference =
+            product.stockQuantity - widget.product!.stockQuantity;
+
+        if (stockDifference != 0) {
+          await _repository.adjustStock(
+            productId: widget.product!.id!,
+            quantityDelta: stockDifference,
+            note: "Stock updated from Edit Product form",
+          );
+        }
+
         await _repository.updateProduct(product);
 
         if (!mounted) return;

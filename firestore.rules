@@ -151,7 +151,7 @@ service cloud.firestore {
 
         match /{collectionName}/{recordId} {
           allow read, create, update: if isOwnerUser(userId)
-            && collectionName in ['products', 'sales', 'expenses'];
+            && collectionName in ['products', 'sales', 'expenses', 'inventory_movements'];
           allow delete: if false;
         }
       }
@@ -309,14 +309,34 @@ service cloud.firestore {
               && request.resource.data.total_amount is number
               && request.resource.data.created_at is string
             )
+            || (
+              collectionName == "sale_orders"
+              && request.resource.data.total_amount is number
+              && request.resource.data.total_amount >= 0
+              && request.resource.data.status in ["completed", "cancelled"]
+              && request.resource.data.created_at is string
+              && (!("cancellation_reason" in request.resource.data) || request.resource.data.cancellation_reason == null || request.resource.data.cancellation_reason is string)
+              && (!("cancelled_at" in request.resource.data) || request.resource.data.cancelled_at == null || request.resource.data.cancelled_at is string)
+            )
+            || (
+              collectionName == "sale_payments"
+              && request.resource.data.order_sync_id is string
+              && request.resource.data.order_sync_id.size() > 0
+              && request.resource.data.payment_method in ["cash", "mpesa"]
+              && request.resource.data.amount is number
+              && request.resource.data.amount > 0
+              && request.resource.data.created_at is string
+              && (!("reference" in request.resource.data) || request.resource.data.reference == null || request.resource.data.reference is string)
+              && (!("note" in request.resource.data) || request.resource.data.note == null || request.resource.data.note is string)
+            )
           );
       }
 
       allow get, list: if isActiveBusinessMember(businessId)
-        && collectionName in ['products', 'sales', 'expenses'];
+        && collectionName in ['products', 'sales', 'expenses', 'sale_orders', 'sale_payments'];
 
       allow create, update: if isActiveBusinessMember(businessId)
-        && collectionName in ['products', 'sales', 'expenses']
+        && collectionName in ['products', 'sales', 'expenses', 'sale_orders', 'sale_payments']
         && validSyncRecord();
 
       allow delete: if false;

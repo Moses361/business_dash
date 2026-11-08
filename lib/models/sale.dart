@@ -7,6 +7,7 @@ class Sale {
   final double sellingPrice;
   final double totalAmount;
   final DateTime createdAt;
+  final String? orderSyncId;
 
   const Sale({
     this.id,
@@ -17,6 +18,7 @@ class Sale {
     required this.sellingPrice,
     required this.totalAmount,
     required this.createdAt,
+    this.orderSyncId,
   });
 
   double get totalCost => buyingPrice * quantity;

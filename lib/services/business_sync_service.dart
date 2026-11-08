@@ -46,7 +46,9 @@ class BusinessSyncService {
     for (final name in [
       DatabaseService.productsTable,
       DatabaseService.expensesTable,
+      DatabaseService.saleOrdersTable,
       DatabaseService.salesTable,
+      DatabaseService.salePaymentsTable,
     ]) {
       downloaded[name] = await _downloadCollection(
         db: db,
@@ -58,7 +60,9 @@ class BusinessSyncService {
     for (final name in [
       DatabaseService.productsTable,
       DatabaseService.expensesTable,
+      DatabaseService.saleOrdersTable,
       DatabaseService.salesTable,
+      DatabaseService.salePaymentsTable,
     ]) {
       uploaded[name] = await _uploadPending(
         db: db,
@@ -214,7 +218,15 @@ class BusinessSyncService {
 
     if (local != null) {
       final localTime = _parseTime(local[DatabaseService.updatedAtColumn]);
-      if (localTime != null && !cloudTime.isAfter(localTime)) {
+      final needsOrderLinkRepair =
+          collectionName == DatabaseService.salesTable &&
+          (local['order_sync_id'] is! String ||
+              (local['order_sync_id'] as String).trim().isEmpty) &&
+          cloud['order_sync_id'] is String &&
+          (cloud['order_sync_id'] as String).trim().isNotEmpty;
+      if (localTime != null &&
+          !cloudTime.isAfter(localTime) &&
+          !needsOrderLinkRepair) {
         return false;
       }
     }
@@ -251,6 +263,8 @@ class BusinessSyncService {
       DatabaseService.productsTable,
       DatabaseService.salesTable,
       DatabaseService.expensesTable,
+      DatabaseService.saleOrdersTable,
+      DatabaseService.salePaymentsTable,
     };
 
     if (!allowed.contains(collectionName)) {
@@ -312,7 +326,9 @@ class BusinessSyncService {
         'brand': cloud['brand'] is String ? cloud['brand'] : null,
         'strength': cloud['strength'] is String ? cloud['strength'] : null,
         'size': cloud['size'] is String ? cloud['size'] : null,
-        'product_type': cloud['product_type'] is String ? cloud['product_type'] : null,
+        'product_type': cloud['product_type'] is String
+            ? cloud['product_type']
+            : null,
       });
     } else if (collectionName == DatabaseService.expensesTable) {
       if (cloud['title'] is! String ||
@@ -327,6 +343,43 @@ class BusinessSyncService {
         'amount': (cloud['amount'] as num).toDouble(),
         'category': cloud['category'],
         'created_at': cloud['created_at'].toString(),
+      });
+    } else if (collectionName == DatabaseService.saleOrdersTable) {
+      if (cloud["total_amount"] is! num ||
+          cloud["status"] is! String ||
+          !["completed", "cancelled"].contains(cloud["status"]) ||
+          cloud["created_at"] == null) {
+        return null;
+      }
+
+      record.addAll({
+        "total_amount": (cloud["total_amount"] as num).toDouble(),
+        "status": cloud["status"],
+        "cancellation_reason": cloud["cancellation_reason"] is String
+            ? cloud["cancellation_reason"]
+            : null,
+        "cancelled_at": cloud["cancelled_at"] is String
+            ? cloud["cancelled_at"]
+            : null,
+        "created_at": cloud["created_at"].toString(),
+      });
+    } else if (collectionName == DatabaseService.salePaymentsTable) {
+      if (cloud["order_sync_id"] is! String ||
+          (cloud["order_sync_id"] as String).trim().isEmpty ||
+          !["cash", "mpesa"].contains(cloud["payment_method"]) ||
+          cloud["amount"] is! num ||
+          (cloud["amount"] as num) <= 0 ||
+          cloud["created_at"] == null) {
+        return null;
+      }
+
+      record.addAll({
+        "order_sync_id": cloud["order_sync_id"],
+        "payment_method": cloud["payment_method"],
+        "amount": (cloud["amount"] as num).toDouble(),
+        "reference": cloud["reference"] is String ? cloud["reference"] : null,
+        "note": cloud["note"] is String ? cloud["note"] : null,
+        "created_at": cloud["created_at"].toString(),
       });
     } else if (collectionName == DatabaseService.salesTable) {
       final productSyncId = cloud['product_sync_id'];
@@ -354,6 +407,9 @@ class BusinessSyncService {
       record.addAll({
         'product_id': products.first['id'],
         'product_sync_id': productSyncId,
+        'order_sync_id': cloud['order_sync_id'] is String
+            ? cloud['order_sync_id']
+            : null,
         'product_name': cloud['product_name'],
         'quantity': (cloud['quantity'] as num).toInt(),
         'buying_price': (cloud['buying_price'] as num).toDouble(),

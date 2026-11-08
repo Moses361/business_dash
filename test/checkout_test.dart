@@ -81,7 +81,7 @@ void main() {
           amount: 300,
           reference: 'MANUAL-REF-1',
         ),
-        CheckoutPaymentInput(method: CheckoutPaymentMethod.cash, amount: 100),
+        CheckoutPaymentInput(method: CheckoutPaymentMethod.cash, amount: 600),
       ],
     );
 
@@ -96,8 +96,8 @@ void main() {
     final products = await productRepository.getProducts();
 
     expect(result.totalAmount, 900);
-    expect(result.amountPaid, 400);
-    expect(result.balanceDue, 500);
+    expect(result.amountPaid, 900);
+    expect(result.balanceDue, 0);
     expect(result.saleIds, hasLength(2));
     expect(orders, hasLength(1));
     expect(orders.single['total_amount'], 900);
@@ -112,30 +112,39 @@ void main() {
     expect(movements, hasLength(2));
   });
 
-  test('Checkout allows a partial payment or no payment', () async {
+  test("Checkout rejects partial and unpaid sales without changing stock or records", () async {
     final productId = await createProduct(
-      name: 'Product A',
+      name: "Product A",
       buyingPrice: 100,
       sellingPrice: 500,
+      stock: 3,
     );
 
-    final partial = await saleRepository.checkout(
-      items: [CheckoutCartItem(productId: productId, quantity: 1)],
-      payments: const [
-        CheckoutPaymentInput(method: CheckoutPaymentMethod.cash, amount: 200),
-      ],
+    await expectLater(
+      saleRepository.checkout(
+        items: [CheckoutCartItem(productId: productId, quantity: 1)],
+        payments: const [
+          CheckoutPaymentInput(method: CheckoutPaymentMethod.cash, amount: 200),
+        ],
+      ),
+      throwsA(isA<ArgumentError>()),
     );
 
-    expect(partial.totalAmount, 500);
-    expect(partial.amountPaid, 200);
-    expect(partial.balanceDue, 300);
-
-    final unpaid = await saleRepository.checkout(
-      items: [CheckoutCartItem(productId: productId, quantity: 1)],
+    await expectLater(
+      saleRepository.checkout(
+        items: [CheckoutCartItem(productId: productId, quantity: 1)],
+      ),
+      throwsA(isA<ArgumentError>()),
     );
 
-    expect(unpaid.amountPaid, 0);
-    expect(unpaid.balanceDue, 500);
+    final db = await databaseService.database;
+    final products = await productRepository.getProducts();
+
+    expect(products.single.stockQuantity, 3);
+    expect(await db.query(DatabaseService.saleOrdersTable), isEmpty);
+    expect(await db.query(DatabaseService.salesTable), isEmpty);
+    expect(await db.query(DatabaseService.salePaymentsTable), isEmpty);
+    expect(await db.query(DatabaseService.inventoryMovementsTable), isEmpty);
   });
 
   test(

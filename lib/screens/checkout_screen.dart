@@ -5,6 +5,7 @@ import '../models/checkout_models.dart';
 import '../models/product.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/sale_repository.dart';
+import 'order_details_screen.dart';
 
 const Color _checkoutGreen = Color(0xFF176B4D);
 const Color _checkoutBackground = Color(0xFFF6F8F7);
@@ -199,9 +200,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    if (_paid > _total + 0.001) {
+    if ((_paid * 100).round() != (_total * 100).round()) {
       _showMessage(
-        'Payment exceeds the order total. Please correct the amounts.',
+        _paid > _total
+            ? 'Payment exceeds the order total. Please correct the amounts.'
+            : 'Full payment is required before completing this sale.',
         isError: true,
       );
       return;
@@ -213,8 +216,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         title: const Text('Confirm checkout'),
         content: Text(
           'Order total: ${_money(_total)}\n'
-          'Amount paid: ${_money(_paid)}\n'
-          'Balance due: ${_money(_balance)}\n\n'
+          'Amount paid: ${_money(_paid)}\n\n'
           'Confirm this order and update stock?',
         ),
         actions: [
@@ -313,8 +315,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           actions: [
             FilledButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Continue'),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OrderDetailsScreen(
+                      orderSyncId: result.orderSyncId,
+                      saleRepository: _saleRepository,
+                    ),
+                  ),
+                );
+              },
+              child: const Text('View Your Order'),
             ),
           ],
         ),

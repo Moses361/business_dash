@@ -5,6 +5,7 @@ import '../repositories/sale_repository.dart';
 import 'checkout_screen.dart';
 import 'reports_screen.dart';
 import 'sale_details_screen.dart';
+import 'order_details_screen.dart';
 
 const Color _salesPrimary = Color(0xFF176B4D);
 const Color _salesSoftGreen = Color(0xFFE1F1EA);
@@ -15,6 +16,17 @@ const Color _salesBorder = Color(0xFFE1E9E4);
 const Color _salesDanger = Color(0xFFD64545);
 
 enum _SalesPeriod { all, today, thisMonth }
+
+class _SaleGroup {
+  final List<Sale> sales = [];
+
+  double get totalAmount =>
+      sales.fold(0.0, (sum, sale) => sum + sale.totalAmount);
+  double get totalProfit =>
+      sales.fold(0.0, (sum, sale) => sum + sale.grossProfit);
+  int get totalQuantity => sales.fold(0, (sum, sale) => sum + sale.quantity);
+  DateTime get createdAt => sales.first.createdAt;
+}
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
@@ -39,23 +51,32 @@ class _SalesScreenState extends State<SalesScreen> {
   String _searchQuery = '';
   _SalesPeriod _selectedPeriod = _SalesPeriod.all;
 
-  List<Sale> get _visibleSales {
+  List<_SaleGroup> get _visibleSaleGroups {
     final now = DateTime.now();
     final query = _searchQuery.trim().toLowerCase();
+    final grouped = <String, _SaleGroup>{};
 
-    return _sales.where((sale) {
-      final date = sale.createdAt.toLocal();
+    for (final sale in _sales) {
+      final syncId = sale.orderSyncId;
+      final key = syncId != null && syncId.trim().isNotEmpty
+          ? "order:" + syncId
+          : "sale:" + sale.id.toString();
+      grouped.putIfAbsent(key, () => _SaleGroup()).sales.add(sale);
+    }
 
+    return grouped.values.where((group) {
+      final date = group.createdAt.toLocal();
       final matchesSearch =
-          query.isEmpty || sale.productName.toLowerCase().contains(query);
-
+          query.isEmpty ||
+          group.sales.any(
+            (sale) => sale.productName.toLowerCase().contains(query),
+          );
       final matchesPeriod = switch (_selectedPeriod) {
         _SalesPeriod.all => true,
         _SalesPeriod.today => DateUtils.isSameDay(date, now),
         _SalesPeriod.thisMonth =>
           date.year == now.year && date.month == now.month,
       };
-
       return matchesSearch && matchesPeriod;
     }).toList();
   }
@@ -119,6 +140,25 @@ class _SalesScreenState extends State<SalesScreen> {
 
     if (!mounted) return;
     await _loadSales();
+  }
+
+  Future<void> _openSaleGroup(_SaleGroup group) async {
+    final orderSyncId = group.sales.first.orderSyncId;
+
+    if (orderSyncId != null && orderSyncId.trim().isNotEmpty) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderDetailsScreen(
+            orderSyncId: orderSyncId,
+            saleRepository: _repository,
+          ),
+        ),
+      );
+      return;
+    }
+
+    await _openSaleDetails(group.sales.first);
   }
 
   Future<void> _openSaleDetails(Sale sale) async {
@@ -242,10 +282,10 @@ class _SalesScreenState extends State<SalesScreen> {
         const SizedBox(height: 12),
         _buildPeriodFilters(),
         const SizedBox(height: 14),
-        if (_visibleSales.isEmpty)
+        if (_visibleSaleGroups.isEmpty)
           _buildEmptyState()
         else
-          ..._visibleSales.map(_buildSaleCard),
+          ..._visibleSaleGroups.map(_buildSaleCard),
       ],
     );
   }
@@ -382,7 +422,7 @@ class _SalesScreenState extends State<SalesScreen> {
             border: Border.all(color: _salesBorder),
           ),
           child: Text(
-            '${_visibleSales.length} / ${_sales.length}',
+            '${_visibleSaleGroups.length} transactions',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -467,17 +507,17 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  Widget _buildSaleCard(Sale sale) {
-    final totalProfit = sale.grossProfit;
-    final positive = totalProfit >= 0;
+  Widget _buildSaleCard(_SaleGroup group) {
+    final positive = group.totalProfit >= 0;
+    final transactionId = group.sales.first.orderSyncId;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _openSaleDetails(sale),
+        onTap: () => _openSaleGroup(group),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Container(
@@ -499,7 +539,7 @@ class _SalesScreenState extends State<SalesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      sale.productName,
+                      'Sale transaction',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -508,59 +548,71 @@ class _SalesScreenState extends State<SalesScreen> {
                         color: _salesTextPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
+                    if (transactionId != null &&
+                        transactionId.trim().isNotEmpty) ...[
+                      const Text(
+                        'TRANSACTION ID',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: _salesTextSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      SelectableText(
+                        transactionId,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: _salesTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
-                      '${sale.quantity} units • ${_formatDate(sale.createdAt)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      '${group.sales.length} product(s) • ${group.totalQuantity} units',
                       style: const TextStyle(
                         fontSize: 11,
                         color: _salesTextSecondary,
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    Row(
-                      children: [
-                        const Text(
-                          'Profit ',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: _salesTextSecondary,
-                          ),
-                        ),
-                        Flexible(
-                          child: Text(
-                            _formatAmount(totalProfit),
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: positive ? _salesPrimary : _salesDanger,
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 3),
+                    Text(
+                      _formatDate(group.createdAt),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _salesTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Profit ${_formatAmount(group.totalProfit)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: positive ? _salesPrimary : _salesDanger,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _formatAmount(sale.totalAmount),
+                    _formatAmount(group.totalAmount),
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: _salesPrimary,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 8),
                   const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 19,
-                    color: Color(0xFF9AA59F),
+                    Icons.arrow_forward_ios_rounded,
+                    size: 15,
+                    color: _salesTextSecondary,
                   ),
                 ],
               ),
